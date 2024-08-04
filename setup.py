@@ -8,12 +8,11 @@ setup(
         "bleach",
         "bson",
         "httpx",
-        "pydantic==1.10.10",
+        "pydantic",
         "devtools",
         "python-jose",
         "pyyaml",
         "typer",
-        "email-validator==1.1.3"
     ],
     entry_points={
         "console_scripts": [
@@ -25,7 +24,7 @@ setup(
     description="A brief description of what your project does",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    url="http://github.com/depictio/depictio",
+    url="http://github.com/depictio/depictio-cli",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
