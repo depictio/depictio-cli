@@ -1,4 +1,4 @@
-from depictio_cli.utils import create_update_delete_workflow, login, remote_validate_pipeline_config
+from depictio_cli.utils import create_update_delete_workflow, login, process_workflow, remote_validate_pipeline_config
 import typer
 from typing import Optional
 
@@ -49,6 +49,9 @@ def setup(
         help="Path to the YAML configuration file",
     ),
     update: Optional[bool] = typer.Option(False, "--update", help="Update the workflow if it already exists"),
+    erase_all: Optional[bool] = typer.Option(False, "--erase-all", help="Erase all workflows and data collections"),
+    scan_files: Optional[bool] = typer.Option(False, "--scan-files", help="Scan files for all data collections of the workflow"),
+    data_collection_tag: Optional[str] = typer.Option(None, "--data-collection-tag", help="Data collection tag to be scanned"),
 ):
     """
     Upload files to a data collection.
@@ -73,6 +76,7 @@ def setup(
             # Populate DB with the validated config for each workflow
             for workflow in validated_config["workflows"]:
                 response_body = create_update_delete_workflow(login_response["agent_config"], workflow, headers, update=update)
+                process_workflow(login_response["agent_config"], response_body, headers, scan_files=scan_files, data_collection_tag=data_collection_tag)
 
             # create_update_delete_workflow()
 
