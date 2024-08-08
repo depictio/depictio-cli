@@ -219,6 +219,7 @@ def scan_files_for_data_collection(agent_config: dict, workflow_id: str, data_co
         typer.echo(f"Files successfully scanned for data collection {data_collection_id}!")
     else:
         typer.echo(f"Error for data collection {data_collection_id}: {response.text}")
+        typer.Exit(code=1)
 
 
 def create_deltatable_request(agent_config: dict, workflow_id: str, data_collection_id: str, headers: dict) -> None:
