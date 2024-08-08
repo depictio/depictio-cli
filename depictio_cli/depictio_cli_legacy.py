@@ -96,6 +96,14 @@ def validate_depictio_agent_config():
 
 
 
+@app.command()
+def dummy():
+    typer.echo("Dummy command.")
+
+
+
+
+
 def load_json_schema(schema_path):
     """Load JSON Schema."""
     with open(schema_path, "r") as f:
