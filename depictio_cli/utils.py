@@ -81,7 +81,7 @@ def send_workflow_request(agent_config: dict, endpoint: str, workflow_data_dict:
     """
     Send a request to the workflow API to create, update, or delete a workflow, based on the specified method.
     """
-    print("Workflow data dict: ", workflow_data_dict)
+    # typer.echo("Workflow data dict: ", workflow_data_dict)
     method_dict = {
         "create": "post",
         "update": "put",
@@ -102,7 +102,7 @@ def send_workflow_request(agent_config: dict, endpoint: str, workflow_data_dict:
         json=json_body,
         timeout=30.0,
     )
-    # print(response.json() if response.status_code != 204 else "")
+    # typer.echo(response.json() if response.status_code != 204 else "")
 
     typer.echo(f"Response status code: {response.status_code}")
     typer.echo(f"Response text: {response.text}")
@@ -199,6 +199,7 @@ def create_update_delete_workflow(
 
     # If the workflow does not exist, create it
     typer.echo(f"Workflow {workflow_data_dict['name']} does not exist, creating it.")
+    typer.echo(f"Endpoint: {endpoint}")
     workflow_json = send_workflow_request(agent_config, endpoint, workflow_data_dict, headers)
     return workflow_json
 
@@ -239,9 +240,9 @@ def create_trackset(agent_config: dict, workflow_id: str, data_collection_id: st
     """
     Upload the trackset to S3 for a given data collection of a workflow.
     """
-    print("creating trackset")
-    print("workflow_id", workflow_id)
-    print("data_collection_id", data_collection_id)
+    typer.echo("creating trackset")
+    typer.echo("workflow_id", workflow_id)
+    typer.echo("data_collection_id", data_collection_id)
     response = httpx.post(
         f"{agent_config['api_base_url']}/depictio/api/v1/jbrowse/create_trackset/{workflow_id}/{data_collection_id}",
         headers=headers,
@@ -253,3 +254,42 @@ def create_trackset(agent_config: dict, workflow_id: str, data_collection_id: st
         typer.echo(f"Error for data collection {data_collection_id}: {response.text}")
 
     return response
+
+
+
+def process_data_collection(agent_config, wf_id, dc, headers, scan_files=True):
+    if scan_files:
+        typer.echo("scan_files_for_data_collection")
+        scan_type = "scan"
+
+        logger.info(f"Data collection: {dc}")
+
+        if "metatype" in dc["config"]:
+            if dc["config"]["metatype"]:
+                if dc["config"]["metatype"].lower() == "metadata":
+                    scan_type = "scan_metadata"
+        logger.info(f"Scan type: {scan_type}")
+        logger.info(f"Data collection: {dc}")
+        logger.info(f"Workflow ID: {wf_id}")
+        scan_files_for_data_collection(agent_config, wf_id, dc["_id"], headers, scan_type)
+    if dc["config"]["type"].lower() == "table":
+        # if dc["data_collection_tag"] == "mosaicatcher_samples_metadata":
+        typer.echo("create_deltatable")
+        create_deltatable_request(agent_config, wf_id, dc["_id"], headers)
+    # elif dc["config"]["type"].lower() == "jbrowse2":
+    #     # # if dc["config"]["type"].lower() == "jbrowse2":
+    #     #     # if scan_files:
+    #     #     #     typer.echo("scan_files_for_data_collection")
+    #     #     #     scan_files_for_data_collection(wf_id, dc["_id"], headers)
+    #     typer.echo("upload_trackset_to_s3")
+    #     create_trackset(agent_config, wf_id, dc["_id"], headers)
+
+def process_workflow(agent_config, wf, headers, scan_files=True, data_collection_tag=None):
+    wf_id = str(wf["_id"])
+    for dc in wf["data_collections"]:
+        print(dc)
+        if data_collection_tag:
+            if dc["data_collection_tag"] == data_collection_tag:
+                process_data_collection(agent_config, wf_id, dc, headers)
+        else:
+            process_data_collection(agent_config, wf_id, dc, headers)
