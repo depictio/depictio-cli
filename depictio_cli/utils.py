@@ -2,7 +2,6 @@ import sys
 from depictio_cli.models import AgentConfig
 import os, yaml, typer, httpx
 from typing import Dict, Optional, Tuple, List
-from pydantic import BaseModel, validator
 from depictio_cli.logging import logger
 
 
@@ -32,7 +31,7 @@ def load_depictio_config(config_path="~/.depictio/agent.yaml"):
             config = validate_depictio_agent_config(config)
             return config
     except FileNotFoundError:
-        typer.echo("Depict.io configuration file not found. Please create a new user and generate a token.")
+        logger.info("Depict.io configuration file not found. Please create a new user and generate a token.")
         raise typer.Exit(code=1)
 
 
@@ -46,15 +45,15 @@ def validate_depictio_agent_config(depictio_agent_config):
 
 def login(config_path: str = "~/.depictio/agent.yaml"):
     depictio_agent_config = load_depictio_config(config_path=config_path)
-    typer.echo(f"Depict.io agent configuration loaded: {depictio_agent_config}")
+    logger.info(f"Depict.io agent configuration loaded: {depictio_agent_config}")
 
     # Connect to depictio API
     response = httpx.post(f"{depictio_agent_config['api_base_url']}/depictio/api/v1/cli/validate_agent_config", json=depictio_agent_config)
     if response.status_code == 200:
-        typer.echo("Agent configuration is valid.")
+        logger.info("Agent configuration is valid.")
         return {"success": True, "agent_config": depictio_agent_config}
     else:
-        typer.echo(f"Agent configuration is invalid: {response.text}")
+        logger.info(f"Agent configuration is invalid: {response.text}")
         return {"success": False}
 
 
@@ -70,18 +69,18 @@ def remote_validate_pipeline_config(agent_config: dict, pipeline_config_path: st
 
     response = httpx.post(f"{agent_config['api_base_url']}/depictio/api/v1/cli/validate_pipeline_config", json=pipeline_config, headers={"Authorization": f"Bearer {token}"})
     if response.status_code == 200:
-        typer.echo("Pipeline configuration is valid.")
-        return {"success": True, "config": pipeline_config}
+        logger.info("Pipeline configuration is valid.")
+        return {"success": True, "config": response.json()["config"]}
     else:
-        typer.echo(f"Pipeline configuration is invalid: {response.text}")
-        return {"success": False, "config": pipeline_config}
+        logger.info(f"Pipeline configuration is invalid: {response.text}")
+        return {"success": False}
 
 
 def send_workflow_request(agent_config: dict, endpoint: str, workflow_data_dict: dict, headers: dict) -> None:
     """
     Send a request to the workflow API to create, update, or delete a workflow, based on the specified method.
     """
-    # typer.echo("Workflow data dict: ", workflow_data_dict)
+    # logger.info("Workflow data dict: ", workflow_data_dict)
     method_dict = {
         "create": "post",
         "update": "put",
@@ -102,17 +101,17 @@ def send_workflow_request(agent_config: dict, endpoint: str, workflow_data_dict:
         json=json_body,
         timeout=30.0,
     )
-    # typer.echo(response.json() if response.status_code != 204 else "")
+    # logger.info(response.json() if response.status_code != 204 else "")
 
-    typer.echo(f"Response status code: {response.status_code}")
-    typer.echo(f"Response text: {response.text}")
+    logger.info(f"Response status code: {response.status_code}")
+    logger.info(f"Response text: {response.text}")
 
     # Check response status
     if response.status_code in [200, 204]:  # 204 for successful DELETE requests
-        typer.echo(f"Workflow {workflow_data_dict.get('workflow_tag', 'N/A')} successfully {endpoint}d! : {response.json() if response.status_code != 204 else ''}")
+        logger.info(f"Workflow {workflow_data_dict.get('workflow_tag', 'N/A')} successfully {endpoint}d! : {response.json() if response.status_code != 204 else ''}")
         return response.json() if response.status_code != 204 else None
     else:
-        typer.echo(f"Error during {endpoint}d: {response.text}")
+        logger.info(f"Error during {endpoint}d: {response.text}")
         raise httpx.HTTPStatusError(message=f"Error during {endpoint}d: {response.text}", request=response.request, response=response)
 
 
@@ -121,9 +120,9 @@ def check_workflow_exists(agent_config: dict, workflow_dict: dict, headers: dict
     Check if the workflow exists and return its details if it does.
     """
 
-    workflow_tag = f"{workflow_dict['engine']}/{workflow_dict['name']}"
     response = httpx.get(
-        f"{agent_config['api_base_url']}/depictio/api/v1/workflows/get?workflow_tag={workflow_tag}",
+        f"{agent_config['api_base_url']}/depictio/api/v1/workflows/get/from_args",
+        params={"name": workflow_dict["name"], "engine": workflow_dict["engine"]},
         headers=headers,
         timeout=30.0,
     )
@@ -136,6 +135,10 @@ def compare_models(agent_config: dict, new_workflow: dict, existing_workflow: di
     """
     Compare the models of two workflows.
     """
+
+    logger.info(f"Existing workflow: {existing_workflow}")
+    logger.info(f"New workflow: {new_workflow}")
+
     # Check if the workflow exists
     if not existing_workflow:
         return {"exists": False, "match": False, "message": "Empty existing workflow."}
@@ -162,21 +165,32 @@ def create_update_delete_workflow(
     """
     Create or update a workflow based on the update flag.
     """
+    logger.info(f"Workflow data dict: {workflow_data_dict}")
 
     endpoint = "update" if update else "create"
 
-
-
     exists, _ = check_workflow_exists(agent_config, workflow_data_dict, headers)
 
-    typer.echo(f"Workflow {exists}")
+    logger.info(f"Workflow {exists}")
+    logger.info(f"Update: {update}")
+
+    logger.info(f"Endpoint: {endpoint}")
+    logger.info(f"Agent config: {agent_config}")
+
+    logger.info(f"Headers: {headers}")
+    logger.info(f"_ : {_}")
+    typer.Exit(code=1)
 
     # Check if the workflow exists
     if exists:
         # If the workflow exists, check if there is a conflict with the existing workflow
+        logger.info(f"Existing workflow: {_}")
+        logger.info(f"New workflow: {workflow_data_dict}")
+
         check_modif = compare_models(agent_config, workflow_data_dict, _, headers)
 
-        typer.echo(f"Workflow {workflow_data_dict['workflow_tag']} has a conflict: {check_modif}")
+        logger.info(f"Check modification: {check_modif}")
+        typer.Exit(code=1)
 
         # If the workflow exists but there is a conflict, check if the user wants to update the existing workflow
         if not check_modif:
@@ -188,18 +202,21 @@ def create_update_delete_workflow(
 
             # If the user wants to update the existing workflow, update it
             else:
-                typer.echo(f"Workflow {workflow_data_dict['workflow_tag']} already exists, updating it.")
+                logger.info(f"Workflow {workflow_data_dict['workflow_tag']} already exists, updating it.")
                 return send_workflow_request(agent_config, endpoint, workflow_data_dict, headers)
 
         # If the workflow exists and there is no conflict, skip the creation
         else:
-            typer.echo(f"Workflow {workflow_data_dict['workflow_tag']} already exists, skipping creation.")
-            return_dict = {str(_["_id"]): [str(data_collection["_id"]) for data_collection in _["data_collections"]]}
-            return return_dict
+            logger.info(f"Workflow {workflow_data_dict['workflow_tag']} already exists, skipping creation.")
+            # return_dict = {str(_["_id"]): [str(data_collection["_id"]) for data_collection in _["data_collections"]]}
+            # logger.info(f"Return dict: {return_dict}")
+            # return return_dict
+
+            return _
 
     # If the workflow does not exist, create it
-    typer.echo(f"Workflow {workflow_data_dict['name']} does not exist, creating it.")
-    typer.echo(f"Endpoint: {endpoint}")
+    logger.info(f"Workflow {workflow_data_dict['name']} does not exist, creating it.")
+    logger.info(f"Endpoint: {endpoint}")
     workflow_json = send_workflow_request(agent_config, endpoint, workflow_data_dict, headers)
     return workflow_json
 
@@ -216,9 +233,9 @@ def scan_files_for_data_collection(agent_config: dict, workflow_id: str, data_co
         timeout=5 * 60,  # Increase the timeout as needed
     )
     if response.status_code == 200:
-        typer.echo(f"Files successfully scanned for data collection {data_collection_id}!")
+        logger.info(f"Files successfully scanned for data collection {data_collection_id}!")
     else:
-        typer.echo(f"Error for data collection {data_collection_id}: {response.text}")
+        logger.info(f"Error for data collection {data_collection_id}: {response.text}")
         typer.Exit(code=1)
 
 
@@ -232,35 +249,34 @@ def create_deltatable_request(agent_config: dict, workflow_id: str, data_collect
         timeout=60.0 * 5,  # Increase the timeout as needed
     )
     if response.status_code == 200:
-        typer.echo(f"Data successfully aggregated for data collection {data_collection_id}!")
+        logger.info(f"Data successfully aggregated for data collection {data_collection_id}!")
     else:
-        typer.echo(f"Error for data collection {data_collection_id}: {response.text}")
+        logger.info(f"Error for data collection {data_collection_id}: {response.text}")
 
 
 def create_trackset(agent_config: dict, workflow_id: str, data_collection_id: str, headers: dict) -> None:
     """
     Upload the trackset to S3 for a given data collection of a workflow.
     """
-    typer.echo("creating trackset")
-    typer.echo("workflow_id", workflow_id)
-    typer.echo("data_collection_id", data_collection_id)
+    logger.info("creating trackset")
+    logger.info("workflow_id", workflow_id)
+    logger.info("data_collection_id", data_collection_id)
     response = httpx.post(
         f"{agent_config['api_base_url']}/depictio/api/v1/jbrowse/create_trackset/{workflow_id}/{data_collection_id}",
         headers=headers,
         timeout=60.0 * 5,  # Increase the timeout as needed
     )
     if response.status_code == 200:
-        typer.echo(f"Trackset successfully created for data collection {data_collection_id}!")
+        logger.info(f"Trackset successfully created for data collection {data_collection_id}!")
     else:
-        typer.echo(f"Error for data collection {data_collection_id}: {response.text}")
+        logger.info(f"Error for data collection {data_collection_id}: {response.text}")
 
     return response
 
 
-
 def process_data_collection(agent_config, wf_id, dc, headers, scan_files=True):
     if scan_files:
-        typer.echo("scan_files_for_data_collection")
+        logger.info("scan_files_for_data_collection")
         scan_type = "scan"
 
         logger.info(f"Data collection: {dc}")
@@ -275,17 +291,20 @@ def process_data_collection(agent_config, wf_id, dc, headers, scan_files=True):
         scan_files_for_data_collection(agent_config, wf_id, dc["_id"], headers, scan_type)
     if dc["config"]["type"].lower() == "table":
         # if dc["data_collection_tag"] == "mosaicatcher_samples_metadata":
-        typer.echo("create_deltatable")
+        logger.info("create_deltatable")
         create_deltatable_request(agent_config, wf_id, dc["_id"], headers)
     # elif dc["config"]["type"].lower() == "jbrowse2":
     #     # # if dc["config"]["type"].lower() == "jbrowse2":
     #     #     # if scan_files:
-    #     #     #     typer.echo("scan_files_for_data_collection")
+    #     #     #     logger.info("scan_files_for_data_collection")
     #     #     #     scan_files_for_data_collection(wf_id, dc["_id"], headers)
-    #     typer.echo("upload_trackset_to_s3")
+    #     logger.info("upload_trackset_to_s3")
     #     create_trackset(agent_config, wf_id, dc["_id"], headers)
 
+
 def process_workflow(agent_config, wf, headers, scan_files=True, data_collection_tag=None):
+    logger.info("Processing workflow")
+    logger.info(f"Workflow: {wf}")
     wf_id = str(wf["_id"])
     for dc in wf["data_collections"]:
         print(dc)

@@ -2,6 +2,8 @@ from depictio_cli.utils import create_update_delete_workflow, login, process_wor
 import typer
 from typing import Optional
 
+from depictio_cli.logging import logger
+
 app = typer.Typer()
 
 
@@ -26,17 +28,17 @@ def validate_pipeline_config(
     """
     Create a new workflow from a given YAML configuration file.
     """
-    typer.echo(f"Creating workflow from {pipeline_config_path}...")
+    logger.info(f"Creating workflow from {pipeline_config_path}...")
 
     from depictio_cli.utils import login, remote_validate_pipeline_config
 
     response = login()
-    typer.echo(response)
+    logger.info(response)
 
     if response["success"]:
         remote_validate_pipeline_config(response["agent_config"], pipeline_config_path)
 
-        typer.echo("Workflow created.")
+        logger.info("Workflow created.")
     else:
         raise typer.Exit(code=1)
 
@@ -58,30 +60,37 @@ def setup(
     """
     validated_config = None
     login_response = login()
-    typer.echo(login_response)
+    logger.info(login_response)
 
     if login_response["success"]:
         response = remote_validate_pipeline_config(login_response["agent_config"], pipeline_config_path)
 
+        
+
         if response["success"]:
-            typer.echo("Pipeline configuration validated.")
+            logger.info("Pipeline configuration validated.")
             validated_config = response["config"]
+            logger.info(f"Validated config: {validated_config}")
         else:
-            typer.echo("Pipeline configuration validation failed.")
+            logger.info("Pipeline configuration validation failed.")
             raise typer.Exit(code=1)
 
         if validated_config:
+            logger.info(f"Validated config: {validated_config}")
+
             headers = {"Authorization": f"Bearer {login_response['agent_config']['user']['token']['access_token']}"}
 
             # Populate DB with the validated config for each workflow
             for workflow in validated_config["workflows"]:
+                logger.info(f"Processing workflow: {workflow}")
                 response_body = create_update_delete_workflow(login_response["agent_config"], workflow, headers, update=update)
                 process_workflow(login_response["agent_config"], response_body, headers, scan_files=scan_files, data_collection_tag=data_collection_tag)
 
-            # create_update_delete_workflow()
 
             # remote_upload_files(response["agent_config"], pipeline_config_path, data_collection_tag)
 
-            # typer.echo("Files uploaded.")
+            # logger.info("Files uploaded.")
+        else:
+            raise typer.Exit(code=1)
     else:
         raise typer.Exit(code=1)
