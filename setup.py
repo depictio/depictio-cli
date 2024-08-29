@@ -7,6 +7,7 @@ setup(
     install_requires=[
         "bleach",
         "bson",
+        "colorlog",
         "httpx",
         "pydantic",
         "devtools",
