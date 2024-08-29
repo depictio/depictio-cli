@@ -1,6 +1,6 @@
 from depictio_cli.utils import create_update_delete_workflow, login, process_workflow, remote_validate_pipeline_config
 import typer
-from typing import Optional
+from typing import Annotated, Optional
 
 from depictio_cli.logging import logger
 
@@ -9,11 +9,7 @@ app = typer.Typer()
 
 @app.command()
 def validate_pipeline_config(
-    pipeline_config_path: str = typer.Option(
-        ...,
-        "--pipeline-config-path",
-        help="Path to the YAML configuration file",
-    ),
+    agent_config_path: Annotated[str, typer.Option("--agent-config-path", help="Path to the configuration file")] = "~/.depictio/agent.yaml",
     # workflow_tag: Optional[str] = typer.Option(None, "--workflow_tag", help="Workflow name to be created"),
     # update: Optional[bool] = typer.Option(False, "--update", help="Update the workflow if it already exists"),
     # erase_all: Optional[bool] = typer.Option(False, "--erase_all", help="Erase all workflows and data collections"),
@@ -28,7 +24,7 @@ def validate_pipeline_config(
     """
     Create a new workflow from a given YAML configuration file.
     """
-    logger.info(f"Creating workflow from {pipeline_config_path}...")
+    logger.info(f"Creating workflow from {agent_config_path}...")
 
     from depictio_cli.utils import login, remote_validate_pipeline_config
 
@@ -36,22 +32,16 @@ def validate_pipeline_config(
     logger.info(response)
 
     if response["success"]:
-        remote_validate_pipeline_config(response["agent_config"], pipeline_config_path)
+        remote_validate_pipeline_config(response["agent_config"], agent_config_path)
 
         logger.info("Workflow created.")
     else:
         raise typer.Exit(code=1)
 
 
-
-
 @app.command()
 def setup(
-    pipeline_config_path: str = typer.Option(
-        ...,
-        "--pipeline-config-path",
-        help="Path to the YAML configuration file",
-    ),
+    agent_config_path: Annotated[str, typer.Option("--agent-config-path", help="Path to the configuration file")] = "~/.depictio/agent.yaml",
     update: Optional[bool] = typer.Option(False, "--update", help="Update the workflow if it already exists"),
     erase_all: Optional[bool] = typer.Option(False, "--erase-all", help="Erase all workflows and data collections"),
     scan_files: Optional[bool] = typer.Option(False, "--scan-files", help="Scan files for all data collections of the workflow"),
@@ -61,13 +51,11 @@ def setup(
     Upload files to a data collection.
     """
     validated_config = None
-    login_response = login()
+    login_response = login(agent_config_path)
     logger.info(login_response)
 
     if login_response["success"]:
-        response = remote_validate_pipeline_config(login_response["agent_config"], pipeline_config_path)
-
-        
+        response = remote_validate_pipeline_config(login_response["agent_config"], agent_config_path)
 
         if response["success"]:
             logger.info("Pipeline configuration validated.")
@@ -87,7 +75,6 @@ def setup(
                 logger.info(f"Processing workflow: {workflow}")
                 response_body = create_update_delete_workflow(login_response["agent_config"], workflow, headers, update=update)
                 process_workflow(login_response["agent_config"], response_body, headers, scan_files=scan_files, data_collection_tag=data_collection_tag)
-
 
             # remote_upload_files(response["agent_config"], pipeline_config_path, data_collection_tag)
 
