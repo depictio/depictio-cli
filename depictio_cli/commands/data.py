@@ -43,6 +43,8 @@ def validate_pipeline_config(
         raise typer.Exit(code=1)
 
 
+
+
 @app.command()
 def setup(
     pipeline_config_path: str = typer.Option(
@@ -89,7 +91,6 @@ def setup(
 
             # remote_upload_files(response["agent_config"], pipeline_config_path, data_collection_tag)
 
-            # logger.info("Files uploaded.")
         else:
             raise typer.Exit(code=1)
     else:

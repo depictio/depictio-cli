@@ -289,17 +289,22 @@ def process_data_collection(agent_config, wf_id, dc, headers, scan_files=True):
         logger.info(f"Data collection: {dc}")
         logger.info(f"Workflow ID: {wf_id}")
         scan_files_for_data_collection(agent_config, wf_id, dc["_id"], headers, scan_type)
+        logger.info("Files uploaded.")
+
     if dc["config"]["type"].lower() == "table":
         # if dc["data_collection_tag"] == "mosaicatcher_samples_metadata":
         logger.info("create_deltatable")
         create_deltatable_request(agent_config, wf_id, dc["_id"], headers)
-    # elif dc["config"]["type"].lower() == "jbrowse2":
-    #     # # if dc["config"]["type"].lower() == "jbrowse2":
-    #     #     # if scan_files:
-    #     #     #     logger.info("scan_files_for_data_collection")
-    #     #     #     scan_files_for_data_collection(wf_id, dc["_id"], headers)
-    #     logger.info("upload_trackset_to_s3")
-    #     create_trackset(agent_config, wf_id, dc["_id"], headers)
+        logger.info("deltatable created.")
+
+        
+    elif dc["config"]["type"].lower() == "jbrowse2":
+        # # if dc["config"]["type"].lower() == "jbrowse2":
+        #     # if scan_files:
+        #     #     logger.info("scan_files_for_data_collection")
+        #     #     scan_files_for_data_collection(wf_id, dc["_id"], headers)
+        logger.info("upload_trackset_to_s3")
+        create_trackset(agent_config, wf_id, dc["_id"], headers)
 
 
 def process_workflow(agent_config, wf, headers, scan_files=True, data_collection_tag=None):
