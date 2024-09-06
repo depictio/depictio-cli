@@ -72,7 +72,13 @@ def remote_validate_pipeline_config(agent_config: dict, pipeline_config_path: st
         logger.info("Pipeline configuration is valid.")
         return {"success": True, "config": response.json()["config"]}
     else:
-        logger.info(f"Pipeline configuration is invalid: {response.text}, {response.status_code}, {str(response.json())}")
+        logger.info(f"Text: {response.text}")
+        logger.info(f"Status code: {response.status_code}")
+        logger.info(f"Response.json: {str(response.json())}")
+        logger.info(f"Response.content: {response.content}")
+        logger.info(f"Response.request: {response.request}")
+        logger.info(f"Response: {response}")
+
         return {"success": False}
 
 
