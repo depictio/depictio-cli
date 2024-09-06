@@ -41,7 +41,8 @@ def validate_pipeline_config(
 
 @app.command()
 def setup(
-    agent_config_path: Annotated[str, typer.Option("--agent-config-path", help="Path to the configuration file")] = "~/.depictio/agent.yaml",
+    agent_config_path: Annotated[str, typer.Option("--agent-config-path", help="Path to the agent configuration file")] = "~/.depictio/agent.yaml",
+    pipeline_config_path: Annotated[str, typer.Option("--pipeline-config-path", help="Path to the pipeline configuration file")] = "",
     update: Optional[bool] = typer.Option(False, "--update", help="Update the workflow if it already exists"),
     erase_all: Optional[bool] = typer.Option(False, "--erase-all", help="Erase all workflows and data collections"),
     scan_files: Optional[bool] = typer.Option(False, "--scan-files", help="Scan files for all data collections of the workflow"),
@@ -55,7 +56,7 @@ def setup(
     logger.info(login_response)
 
     if login_response["success"]:
-        response = remote_validate_pipeline_config(login_response["agent_config"], agent_config_path)
+        response = remote_validate_pipeline_config(login_response["agent_config"], pipeline_config_path)
 
         if response["success"]:
             logger.info("Pipeline configuration validated.")
