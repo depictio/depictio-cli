@@ -29,7 +29,7 @@ workflows:
       # TODO: to turn into a dict (location - regex)
       # The location of the runs - multiple locations can be specified
       parent_runs_location:
-        - "${PARENT_RUNS_LOCATION}"
+        - "${$DEPICTIO_BACKEND_DATA_VOLUME_HOST}/StrandSeq/HGSVC"
 
       # Regular expression to match the runs
       runs_regex: ".*"
