@@ -75,6 +75,8 @@ def remote_validate_pipeline_config(agent_config: dict, pipeline_config_path: st
         logger.info(f"Response Headers: {response.headers}")
         logger.info(f"Response Content-Type: {response.headers.get('Content-Type', 'Unknown')}")
         logger.info(f"Response Text: {response.text}")
+        logger.info(f"Token: {token}")
+        logger.info(f"Pipeline config: {pipeline_config}")
 
         # Attempt to parse the response JSON if the status is 200
         if response.status_code == 200:
