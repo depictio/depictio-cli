@@ -1,3 +1,4 @@
+import json
 import sys
 from depictio_cli.models import AgentConfig
 import os, yaml, typer, httpx
@@ -74,7 +75,7 @@ def remote_validate_pipeline_config(agent_config: dict, pipeline_config_path: st
     else:
         logger.info(f"Text: {response.text}")
         logger.info(f"Status code: {response.status_code}")
-        logger.info(f"Response.json: {str(response.json())}")
+        logger.info(f"Response.json: {json.dumps(response.json())}")
         logger.info(f"Response.content: {response.content}")
         logger.info(f"Response.request: {response.request}")
         logger.info(f"Response: {response}")
