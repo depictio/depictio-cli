@@ -1,3 +1,4 @@
+import json
 import sys
 from depictio_cli.models import AgentConfig
 import os, yaml, typer, httpx
@@ -67,13 +68,33 @@ def remote_validate_pipeline_config(agent_config: dict, pipeline_config_path: st
 
     token = agent_config["user"]["token"]["access_token"]
 
-    response = httpx.post(f"{agent_config['api_base_url']}/depictio/api/v1/cli/validate_pipeline_config", json=pipeline_config, headers={"Authorization": f"Bearer {token}"})
-    if response.status_code == 200:
-        logger.info("Pipeline configuration is valid.")
-        return {"success": True, "config": response.json()["config"]}
-    else:
-        logger.info(f"Pipeline configuration is invalid: {response.text}")
-        return {"success": False}
+    try:
+        response = httpx.post(f"{agent_config['api_base_url']}/depictio/api/v1/cli/validate_pipeline_config", json=pipeline_config, headers={"Authorization": f"Bearer {token}"})
+        # Log the response status, headers, and content
+        logger.info(f"Status code: {response.status_code}")
+        logger.info(f"Response Headers: {response.headers}")
+        logger.info(f"Response Content-Type: {response.headers.get('Content-Type', 'Unknown')}")
+        logger.info(f"Response Text: {response.text}")
+        logger.info(f"Token: {token}")
+        logger.info(f"Pipeline config: {pipeline_config}")
+
+        # Attempt to parse the response JSON if the status is 200
+        if response.status_code == 200:
+            response_json = response.json()
+            logger.info(f"Response JSON: {json.dumps(response_json, indent=2)}")
+            return {"success": True, "config": response_json.get("config", {})}
+        else:
+            logger.error("Failed to validate the pipeline configuration.")
+            return {"success": False}
+    except httpx.RequestError as e:
+        logger.error(f"Request error occurred: {e}")
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decoding failed: {e}")
+        logger.error(f"Raw Response Content: {response.text if response else 'No response'}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
+
+    return {"success": False}
 
 
 def send_workflow_request(agent_config: dict, endpoint: str, workflow_data_dict: dict, headers: dict) -> None:
@@ -297,7 +318,6 @@ def process_data_collection(agent_config, wf_id, dc, headers, scan_files=True):
         create_deltatable_request(agent_config, wf_id, dc["_id"], headers)
         logger.info("deltatable created.")
 
-        
     elif dc["config"]["type"].lower() == "jbrowse2":
         # # if dc["config"]["type"].lower() == "jbrowse2":
         #     # if scan_files:
