@@ -1,3 +1,4 @@
+import hashlib
 import time
 import httpx
 from depictio_cli.utils import create_update_delete_workflow, login, process_workflow, remote_validate_pipeline_config
@@ -57,8 +58,14 @@ def setup(
     login_response = login(agent_config_path)
     logger.info(login_response)
 
+
     if login_response["success"]:
         response = remote_validate_pipeline_config(login_response["agent_config"], pipeline_config_path)
+
+        token = login_response["agent_config"]["user"]["token"]["access_token"]
+        # hash the token
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        logger.info(f"Token hash: {token_hash}")
 
         if response["success"]:
             logger.info("Pipeline configuration validated.")
@@ -93,17 +100,16 @@ def setup(
                     headers=headers,
                     timeout=30.0,
                 )
-                logger.info(f"DEBUG - code: {response_debug.status_code}, response: {response_debug.text}")
+                logger.info(f"DEBUG - code: {response_debug.status_code}, response: {response_debug.text}, params: {response_debug.request.url}")
 
 
-                # DEBUG: check if workflow was created in the DB
                 response_debug = httpx.get(
                     f"{login_response['agent_config']['api_base_url']}/depictio/api/v1/workflows/get/from_args",
                     params={"name": "mosaicatcher-pipeline", "engine": "snakemake"},
                     headers=headers,
                     timeout=30.0,
                 )
-                logger.info(f"DEBUG - code: {response_debug.status_code}, response: {response_debug.text}")
+                logger.info(f"DEBUG - code: {response_debug.status_code}, response: {response_debug.text}, params: {response_debug.request.url}")
 
                 process_workflow(login_response["agent_config"], response_body, headers, scan_files=scan_files, data_collection_tag=data_collection_tag)
 
