@@ -78,6 +78,18 @@ def setup(
                 response_body = create_update_delete_workflow(login_response["agent_config"], workflow, headers, update=update)
                 logger.info(f"Workflow processed: {str(response_body)}")
 
+
+                logger.info(f"Agent config: {login_response['agent_config']}")
+
+                # DEBUG: check if workflow was created in the DB
+                response_debug = httpx.get(
+                    f"{login_response['agent_config']['api_base_url']}/depictio/api/v1/workflows/get_all_workflows",
+                    headers=headers,
+                    timeout=30.0,
+                )
+                logger.info(f"DEBUG - code: {response_debug.status_code}, response: {response_debug.text}")
+
+
                 # DEBUG: check if workflow was created in the DB
                 response_debug = httpx.get(
                     f"{login_response['agent_config']['api_base_url']}/depictio/api/v1/workflows/get/from_args",
