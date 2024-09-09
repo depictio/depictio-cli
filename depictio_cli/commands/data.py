@@ -1,3 +1,4 @@
+import httpx
 from depictio_cli.utils import create_update_delete_workflow, login, process_workflow, remote_validate_pipeline_config
 import typer
 from typing import Annotated, Optional
@@ -75,6 +76,17 @@ def setup(
             for workflow in validated_config["workflows"]:
                 logger.info(f"Processing workflow: {workflow}")
                 response_body = create_update_delete_workflow(login_response["agent_config"], workflow, headers, update=update)
+                logger.info(f"Workflow processed: {str(response_body)}")
+
+                # DEBUG: check if workflow was created in the DB
+                response_debug = httpx.get(
+                    f"{login_response['agent_config']['api_base_url']}/depictio/api/v1/workflows/get/from_args",
+                    params={"name": "mosaicatcher-pipeline", "engine": "snakemake"},
+                    headers=headers,
+                    timeout=30.0,
+                )
+                logger.info(f"DEBUG - code: {response_debug.status_code}, response: {response_debug.text}")
+
                 process_workflow(login_response["agent_config"], response_body, headers, scan_files=scan_files, data_collection_tag=data_collection_tag)
 
             # remote_upload_files(response["agent_config"], pipeline_config_path, data_collection_tag)
