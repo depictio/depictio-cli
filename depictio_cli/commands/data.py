@@ -56,8 +56,7 @@ def setup(
     """
     validated_config = None
     login_response = login(agent_config_path)
-    logger.info(login_response)
-
+    logger.debug(f"login_response: {login_response}")
 
     if login_response["success"]:
         response = remote_validate_pipeline_config(login_response["agent_config"], pipeline_config_path)
@@ -65,51 +64,23 @@ def setup(
         token = login_response["agent_config"]["user"]["token"]["access_token"]
         # hash the token
         token_hash = hashlib.sha256(token.encode()).hexdigest()
-        logger.info(f"Token hash: {token_hash}")
+        logger.debug(f"Token hash: {token_hash}")
 
         if response["success"]:
             logger.info("Pipeline configuration validated.")
             validated_config = response["config"]
-            logger.info(f"Validated config: {validated_config}")
+            logger.debug(f"Validated config: {validated_config}")
         else:
-            logger.info("Pipeline configuration validation failed.")
+            logger.error("Pipeline configuration validation failed.")
             raise typer.Exit(code=1)
 
         if validated_config:
-            logger.info(f"Validated config: {validated_config}")
-
             headers = {"Authorization": f"Bearer {login_response['agent_config']['user']['token']['access_token']}"}
 
             # Populate DB with the validated config for each workflow
             for workflow in validated_config["workflows"]:
-                logger.info(f"Processing workflow: {workflow}")
+                logger.info(f"Processing workflow: {workflow['engine']}/{workflow['name']}")
                 response_body = create_update_delete_workflow(login_response["agent_config"], workflow, headers, update=update)
-
-                # Sleep for 5 seconds to allow the DB to update
-                time.sleep(5)
-
-
-                logger.info(f"Workflow processed: {str(response_body)}")
-
-
-                logger.info(f"Agent config: {login_response['agent_config']}")
-
-                # DEBUG: check if workflow was created in the DB
-                response_debug = httpx.get(
-                    f"{login_response['agent_config']['api_base_url']}/depictio/api/v1/workflows/get_all_workflows",
-                    headers=headers,
-                    timeout=30.0,
-                )
-                logger.info(f"DEBUG - code: {response_debug.status_code}, response: {response_debug.text}, params: {response_debug.request.url}")
-
-
-                response_debug = httpx.get(
-                    f"{login_response['agent_config']['api_base_url']}/depictio/api/v1/workflows/get/from_args",
-                    params={"name": "mosaicatcher-pipeline", "engine": "snakemake"},
-                    headers=headers,
-                    timeout=30.0,
-                )
-                logger.info(f"DEBUG - code: {response_debug.status_code}, response: {response_debug.text}, params: {response_debug.request.url}")
 
                 process_workflow(login_response["agent_config"], response_body, headers, scan_files=scan_files, data_collection_tag=data_collection_tag)
 
