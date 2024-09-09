@@ -1,3 +1,4 @@
+import time
 import httpx
 from depictio_cli.utils import create_update_delete_workflow, login, process_workflow, remote_validate_pipeline_config
 import typer
@@ -76,6 +77,11 @@ def setup(
             for workflow in validated_config["workflows"]:
                 logger.info(f"Processing workflow: {workflow}")
                 response_body = create_update_delete_workflow(login_response["agent_config"], workflow, headers, update=update)
+
+                # Sleep for 5 seconds to allow the DB to update
+                time.sleep(5)
+
+
                 logger.info(f"Workflow processed: {str(response_body)}")
 
 
