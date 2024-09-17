@@ -20,9 +20,9 @@ setup(
             "depictio-cli=depictio_cli.depictio_cli:main"
         ]
     },
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="A brief description of what your project does",
+    author="Thomas Weber",
+    author_email="thomas.weber@embl.de",
+    description="Depictio CLI to interact with the Depictio API",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url="http://github.com/depictio/depictio-cli",
