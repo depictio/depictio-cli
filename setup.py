@@ -2,18 +2,18 @@ from setuptools import setup, find_packages
 
 setup(
     name="depictio-cli",
-    version="0.1.0",
+    version="0.0.1",
     packages=find_packages(),
     install_requires=[
-        "bleach",
-        "bson",
         "colorlog",
         "httpx",
-        "pydantic",
         "devtools",
         "python-jose",
         "pyyaml",
+        "tinydb",
         "typer",
+        ###
+        "depictio-models",
     ],
     entry_points={
         "console_scripts": [
