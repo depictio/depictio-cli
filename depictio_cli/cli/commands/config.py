@@ -34,12 +34,12 @@ def validate_project_config(
     logger.info(f"Creating workflow from {CLI_config_path}...")
     logger.info(f"Validating pipeline configuration from {project_config_path}...")
 
-    from depictio_cli.cli.utils.config import login, remote_validate_project_config
+    from depictio_cli.cli.utils.config import login, local_validate_project_config
 
     response = login(CLI_config_path)
     logger.info(response)
 
     if response["success"]:
-        remote_validate_project_config(response["CLI_config"], project_config_path)
+        local_validate_project_config(response["CLI_config"], project_config_path)
     else:
         raise typer.Exit(code=1)

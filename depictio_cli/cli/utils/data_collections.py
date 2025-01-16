@@ -102,7 +102,7 @@ def process_data_collection_helper(cli_config, wf_id, dc, headers, scan_files=Tr
                 if dc["config"]["metatype"].lower() == "metadata":
                     scan_type = "scan_metadata"
         logger.info(f"Scan type: {scan_type}")
-        # scan_files_for_data_collection(cli_config, wf_id, dc["_id"], headers, scan_type)
+        scan_files_for_data_collection(cli_config, wf_id, dc["_id"], headers, scan_type)
         logger.info("Files uploaded.")
 
     if dc["config"]["type"].lower() == "table":
@@ -110,11 +110,11 @@ def process_data_collection_helper(cli_config, wf_id, dc, headers, scan_files=Tr
         create_deltatable_request(cli_config, wf_id, dc["_id"], headers)
         logger.info("deltatable created.")
 
-    elif dc["config"]["type"].lower() == "jbrowse2":
-        # # if dc["config"]["type"].lower() == "jbrowse2":
-        #     # if scan_files:
-        #     #     logger.info("scan_files_for_data_collection")
-        #     #     scan_files_for_data_collection(wf_id, dc["_id"], headers)
-        logger.info("upload_trackset_to_s3")
-        create_trackset(cli_config, wf_id, dc["_id"], headers)
+    # elif dc["config"]["type"].lower() == "jbrowse2":
+    #     # # if dc["config"]["type"].lower() == "jbrowse2":
+    #     #     # if scan_files:
+    #     #     #     logger.info("scan_files_for_data_collection")
+    #     #     #     scan_files_for_data_collection(wf_id, dc["_id"], headers)
+    #     logger.info("upload_trackset_to_s3")
+    #     create_trackset(cli_config, wf_id, dc["_id"], headers)
 

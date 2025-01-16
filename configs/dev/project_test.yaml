@@ -1,0 +1,16 @@
+depictio_version: "v0.0.3"
+name: "Strand-Seq data analysis"
+data_management_platform_project_url: "https://labid.embl.org/core/projects/default/5baa8f07-bd00-46e7-b3cb-ec79d01f6f3c"
+description: "TEST"
+workflows:
+  - workflow_tag: "snakemake/mosaicatcher-pipeline"
+    engine: "snakemake"
+    name: "mosaicatcher-pipeline"
+    description: "Strand-Seq SV calling framework"
+    repository_url: "https://github.com/friendsofstrandseq/mosaicatcher-pipeline"
+    config:
+      parent_runs_location:
+        - "/Users/tweber/Data/mosaicatcher-pipeline-2024"
+      runs_regex: ".*"
+    data_collections:
+      - "A"
