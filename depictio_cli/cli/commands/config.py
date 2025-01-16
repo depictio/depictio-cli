@@ -1,5 +1,5 @@
 
-from depictio_cli.cli.utils.config import load_depictio_config
+from depictio_cli.cli.utils.config import S3_storage_checks, load_depictio_config
 
 from depictio_cli.logging import logger
 import typer
@@ -40,6 +40,9 @@ def validate_project_config(
     logger.info(response)
 
     if response["success"]:
+        # Validate the project configuration
         local_validate_project_config(response["CLI_config"], project_config_path)
+        # Check S3 accessibility
+        S3_storage_checks(response["CLI_config"])
     else:
         raise typer.Exit(code=1)

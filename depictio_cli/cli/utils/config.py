@@ -3,9 +3,12 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import boto3
 import os, yaml, typer, httpx
 from typing import Dict, Optional, Tuple, List
+from depictio_cli.cli.utils.s3 import MinIOManager
 from depictio_cli.logging import logger
+from depictio_models.models.s3 import MinIOS3Config
 from depictio_models.utils import validate_model_config
 from depictio_models.models.projects import Project
 from depictio_models.models.base import convert_objectid_to_str
@@ -471,3 +474,17 @@ def update_metadata(new_entry: dict):
 
     save_metadata(metadata)
     logger.info("Metadata saved.")
+
+
+def S3_storage_checks(cli_config):
+    """
+    Check if the S3 endpoint, access key, secret key, and bucket are accessible.
+    """
+    logger.info("Checking S3 accessibility...")
+    # Connect to MinIO
+    logger.info(f"CLI config : {cli_config}")
+    s3_config = cli_config["s3_storage"]
+    logger.info(f"S3 config : {s3_config}")
+    minio_manager = MinIOManager(MinIOS3Config(**s3_config))
+    logger.info("MinIOManager initialized.")
+    minio_manager.suggest_adjustments()
