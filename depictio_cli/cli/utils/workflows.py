@@ -59,6 +59,20 @@ def check_workflow_exists(api_url: str, workflow_dict: dict, headers: dict) -> T
         return True, response.json()
     return False, None
 
+def check_project_exists(api_url: str, project_dict: dict, headers: dict) -> Tuple[bool, Optional[Dict]]:
+    """
+    Check if the workflow exists and return its details if it does.
+    """
+    response = httpx.get(
+        f"{api_url}/depictio/api/v1/projects/get/from_args",
+        params={"name": project_dict["name"]},
+        headers=headers,
+        timeout=30.0,
+    )
+    if response.status_code == 200:
+        return True, response.json()
+    return False, None
+
 
 def compare_models(cli_config: dict, new_workflow: dict, existing_workflow: dict, headers: dict) -> bool:
     """
@@ -173,3 +187,17 @@ def process_workflow_helper(cli_config, wf, headers, scan_files=True, data_colle
                 process_data_collection_helper(cli_config, wf_id, dc, headers)
         else:
             process_data_collection_helper(cli_config, wf_id, dc, headers)
+
+
+def process_project_helper(cli_config, project_config, headers, update, scan_files, data_collection_tag):
+    """
+    Process the project.
+    """
+    logger.info(f"Processing project: {project_config['name']}")
+
+    # Populate DB with the validated config for each workflow
+    for workflow in project_config["workflows"]:
+        logger.info(f"Processing workflow: {workflow['engine']}/{workflow['name']}")
+        response_body = create_update_delete_workflow(project_config, workflow, headers, cli_config, update=update)
+        logger.debug(f"Response body: {response_body}")
+        # process_workflow_helper(cli_config, response_body, headers, scan_files=scan_files, data_collection_tag=data_collection_tag)
