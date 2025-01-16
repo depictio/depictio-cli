@@ -1,3 +1,6 @@
+import os
+os.environ["DEPICTIO_CONTEXT"] = "CLI"
+
 import typer
 from typer.main import get_command
 from depictio_cli.cli.commands.config import app as config
