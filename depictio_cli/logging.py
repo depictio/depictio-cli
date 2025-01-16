@@ -3,7 +3,7 @@ from colorlog import ColoredFormatter
 
 # Create a logger
 logger = logging.getLogger("depictio-cli")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Create a colored formatter
 formatter = ColoredFormatter(
