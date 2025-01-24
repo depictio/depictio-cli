@@ -12,6 +12,7 @@ setup(
         "pyyaml",
         "tinydb",
         "typer",
+        "typeguard",
         ###
         "depictio-models",
     ],
