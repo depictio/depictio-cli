@@ -7,6 +7,8 @@ from botocore.exceptions import NoCredentialsError, PartialCredentialsError, Cli
 from depictio_models.models.s3 import MinIOS3Config
 from depictio_models.logging import logger
 
+from depictio_cli.cli.utils.rich_utils import rich_print_checked_statement, rich_print_json
+
 class S3ProviderBase(ABC):
     def __init__(self, bucket_name):
         self.bucket_name = bucket_name
@@ -33,10 +35,12 @@ class S3ProviderBase(ABC):
             suggestions.append("Adjust bucket policies to allow write access for this client.")
 
         if suggestions:
+            rich_print_checked_statement("S3 storage is not correctly configured, use --verbose for more details.", "error")
             logger.error("Suggested Adjustments:")
             for suggestion in suggestions:
                 logger.error(f"- {suggestion}")
         else:
+            rich_print_checked_statement("S3 storage is correctly configured.", "success")
             logger.info("No adjustments needed.")
 
 
@@ -91,3 +95,16 @@ class MinIOManager(S3ProviderBase):
 
 #     # Perform checks and suggest adjustments
 #     s3_manager.suggest_adjustments()
+
+def S3_storage_checks(cli_config):
+    """
+    Check if the S3 endpoint, access key, secret key, and bucket are accessible.
+    """
+    logger.info("Checking S3 accessibility...")
+    # Connect to MinIO
+    logger.info(f"CLI config : {cli_config}")
+    s3_config = cli_config["s3_storage"]
+    logger.info(f"S3 config : {s3_config}")
+    minio_manager = MinIOManager(MinIOS3Config(**s3_config))
+    logger.info("MinIOManager initialized.")
+    minio_manager.suggest_adjustments()
