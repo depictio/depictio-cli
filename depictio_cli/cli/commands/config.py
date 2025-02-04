@@ -108,4 +108,4 @@ def sync_project_config_to_server(
         return
     rich_print_checked_statement("Pipeline configuration validated", "success")
     project_config = convert_model_to_dict(validation_response["project_config"])
-    api_sync_project_config_to_server(CLI_config=CLI_config, project_config=project_config, update=update)
+    api_sync_project_config_to_server(CLI_config=CLI_config, ProjectConfig=project_config, update=update)

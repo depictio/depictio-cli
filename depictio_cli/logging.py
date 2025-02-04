@@ -7,7 +7,7 @@ logger = logging.getLogger("depictio-cli")
 logger.propagate = False  # Prevent propagation to root logger
 
 
-def setup_logging(verbose: bool = False) -> logging.Logger:
+def setup_logging(verbose: bool = False, verbose_level: str = "INFO") -> logging.Logger:
     global logger
 
     # Clear any existing handlers
@@ -29,7 +29,8 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     if verbose:
-        logger.setLevel(logging.INFO)
+        level_name = logging.getLevelNamesMapping().get(verbose_level, verbose_level)
+        logger.setLevel(level_name)
     else:
         logger.setLevel(logging.ERROR)
 

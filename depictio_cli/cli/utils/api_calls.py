@@ -6,6 +6,9 @@ import typer
 from depictio_cli.cli.utils.common import generate_api_headers, load_depictio_config
 from depictio_cli.logging import logger
 from depictio_cli.cli.utils.rich_utils import rich_print_checked_statement
+from depictio_models.models.base import convert_objectid_to_str
+from depictio_models.models.cli import CLIConfig
+from depictio_models.models.projects import Project
 
 @typechecked
 def api_login(yaml_config_path: str = "~/.depictio/agent.yaml") -> dict:
@@ -13,6 +16,7 @@ def api_login(yaml_config_path: str = "~/.depictio/agent.yaml") -> dict:
     Login to the Depictio API using the CLI configuration.
     """
     depictio_CLI_config = load_depictio_config(yaml_config_path=yaml_config_path)
+    depictio_CLI_config = convert_objectid_to_str(depictio_CLI_config.model_dump())
     logger.info(f"Depictio CLI configuration loaded: {depictio_CLI_config}")
 
     # Connect to depictio API
@@ -28,50 +32,54 @@ def api_login(yaml_config_path: str = "~/.depictio/agent.yaml") -> dict:
 
 
 @typechecked
-def api_get_project_from_id(project_id: str, CLI_config: dict):
+def api_get_project_from_id(project_id: str, CLI_config: CLIConfig):
     """
     Get a project from the server using the project ID.
     """
     # First check if the project exists on the server DB for existing IDs and if the same metadata hash is used
-    response = httpx.get(f"{CLI_config['api_base_url']}/depictio/api/v1/projects/get/from_id", params={"project_id": project_id}, headers=generate_api_headers(CLI_config))
+    response = httpx.get(f"{CLI_config.api_base_url}/depictio/api/v1/projects/get/from_id", params={"project_id": project_id}, headers=generate_api_headers(CLI_config))
     return response
 
 
 @typechecked
-def api_create_project(project_config: dict, CLI_config: dict):
+def api_create_project(project_config: dict, CLI_config: CLIConfig):
     """
     Create a project on the server.
     """
     logger.info(f"Creating project on server...")
 
-    response = httpx.post(f"{CLI_config['api_base_url']}/depictio/api/v1/projects/create", json=project_config, headers=generate_api_headers(CLI_config))
+    response = httpx.post(f"{CLI_config.api_base_url}/depictio/api/v1/projects/create", json=project_config, headers=generate_api_headers(CLI_config))
 
     return response
 
 
 @typechecked
-def api_update_project(project_config: dict, CLI_config: dict):
+def api_update_project(project_config: dict, CLI_config: CLIConfig):
     """
     Update a project on the server.
     """
     logger.info(f"Updating project on server...")
 
-    response = httpx.put(f"{CLI_config['api_base_url']}/depictio/api/v1/projects/update", json=project_config, headers=generate_api_headers(CLI_config))
+    response = httpx.put(f"{CLI_config.api_base_url}/depictio/api/v1/projects/update", json=project_config, headers=generate_api_headers(CLI_config))
 
     return response
 
 
 @typechecked
-def api_sync_project_config_to_server(CLI_config: dict, project_config: dict, update: bool = False):
+def api_sync_project_config_to_server(CLI_config: CLIConfig, ProjectConfig: dict, update: bool = False):
     """
     Sync the pipeline configuration to the server.
     """
     rich_print_checked_statement("Syncing pipeline configuration to server...", "info")
 
     # Check if the project exists on the server
+    logger.info(f"Project configuration: {ProjectConfig}")
+    project_config = ProjectConfig
+
+    response = api_get_project_from_id(str(ProjectConfig["id"]), CLI_config)
+    # response = api_get_project_from_id(str(ProjectConfig.id), CLI_config)
+    # project_config = convert_objectid_to_str(ProjectConfig.mongo())
     logger.info(f"Project configuration: {project_config}")
-    # exit()
-    response = api_get_project_from_id(project_config["id"], CLI_config)
 
     if response.status_code == 200:
         rich_print_checked_statement("Project configuration found on server", "info")

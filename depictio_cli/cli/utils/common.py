@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import typer
 import yaml
@@ -8,22 +9,28 @@ from depictio_cli.logging import logger
 from depictio_models.models.cli import CLIConfig
 from depictio_models.utils import convert_model_to_dict
 
+
 @typechecked
-def generate_api_headers(CLI_config: dict) -> dict:
+def generate_api_headers(CLI_config: CLIConfig) -> dict:
     """
     Generate the API headers.
     """
     if not CLI_config:
         raise ValueError("CLI_config is required.")
-    
+
     if isinstance(CLI_config, CLIConfig):
-        CLI_config = CLI_config.model_dump()
+        logger.info(f"CLI_config: {CLI_config}")
+        logger.info(f"Type of CLI_config: {type(CLI_config)}")
+        cli_config_dict = CLI_config.model_dump()
+
+    elif isinstance(CLI_config, dict):
+        cli_config_dict = CLI_config
+
     elif not isinstance(CLI_config, dict):
         raise TypeError(f"project_config must be a dictionary, got {type(CLI_config)}")
 
-
     # Get the token from the CLI configuration
-    token = CLI_config["user"]["token"]["access_token"]
+    token = cli_config_dict["user"]["token"]["access_token"]
 
     return {"Authorization": f"Bearer {token}"}
 
@@ -47,8 +54,20 @@ def get_config(filename: str) -> dict:
             yaml_data = yaml.safe_load(f)
         return yaml_data
 
+
 @typechecked
-def validate_depictio_cli_config(depictio_cli_config: dict) -> dict:
+def format_timestamp(timestamp: float) -> str:
+    """
+    Format the timestamp.
+    """
+    try:
+        dt = datetime.fromtimestamp(timestamp)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return str(timestamp)
+
+@typechecked
+def validate_depictio_cli_config(depictio_cli_config: dict) -> CLIConfig:
     """
     Validate the Depictio CLI configuration.
     """
@@ -57,18 +76,19 @@ def validate_depictio_cli_config(depictio_cli_config: dict) -> dict:
 
     config = CLIConfig(**depictio_cli_config)
     logger.info(f"Depictio CLI configuration validated: {config}")
-    config = convert_model_to_dict(config)
+    # config = convert_model_to_dict(config)
 
     return config
 
 
 @typechecked
-def load_depictio_config(yaml_config_path : str = "~/.depictio/cli.yaml") -> dict:
+def load_depictio_config(yaml_config_path: str = "~/.depictio/cli.yaml") -> CLIConfig:
     """
     Load the Depictio configuration file.
     """
     try:
         from depictio_cli.cli.utils.rich_utils import rich_print_checked_statement
+
         rich_print_checked_statement("Loading Depictio configuration...", "loading")
         config = get_config(os.path.expanduser(yaml_config_path))
         config = validate_depictio_cli_config(config)

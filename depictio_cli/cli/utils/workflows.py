@@ -1,10 +1,14 @@
-
-import json
 import sys
+
+from typeguard import typechecked
 from depictio_cli.cli.utils.data_collections import process_data_collection_helper
-import os, yaml, typer, httpx
-from typing import Dict, Optional, Tuple, List
+import typer, httpx
+from typing import Dict, Optional, Tuple
+from depictio_cli.cli.utils.rich_utils import rich_print_checked_statement
 from depictio_cli.logging import logger
+from depictio_models.models.cli import CLIConfig
+from depictio_models.models.workflows import Workflow
+
 
 def send_workflow_request(cli_config: dict, endpoint: str, workflow_data_dict: dict, headers: dict) -> None:
     """
@@ -59,6 +63,7 @@ def check_workflow_exists(api_url: str, workflow_dict: dict, headers: dict) -> T
         return True, response.json()
     return False, None
 
+
 def check_project_exists(api_url: str, project_dict: dict, headers: dict) -> Tuple[bool, Optional[Dict]]:
     """
     Check if the workflow exists and return its details if it does.
@@ -99,105 +104,104 @@ def compare_models(cli_config: dict, new_workflow: dict, existing_workflow: dict
         return {"exists": True, "match": False, "message": response.text}
 
 
-def create_update_delete_workflow(
-    project_config: dict,
-    workflow_data_dict: dict,
-    headers: dict,
-    cli_config : dict,
-    update: bool = False,
-) -> None:
+
+@typechecked
+def process_workflow_helper(CLI_config: CLIConfig, workflow: Workflow, data_collection_tag: Optional[str] = None, rescan_folders: bool = False, update_files: bool = False) -> None:
     """
-    Create or update a workflow based on the update flag.
+    Process a workflow's data collections, optionally filtering by a specific data collection tag.
+
+    Args:
+        cli_config (dict): CLI configuration settings.
+        workflow (dict): Workflow configuration containing data collections.
+        data_collection_tag (str, optional): Specific data collection tag to process.
+                                             If None, all data collections are processed.
+        rescan_folders (bool, optional): Reprocess the runs for the data collections.
+        update_files (bool, optional): Update the files for the data collections.
     """
-    logger.debug(f"Workflow data dict: {workflow_data_dict}")
+    logger.info(f"Processing Workflow: {workflow.name}")
+    rich_print_checked_statement(f"Processing Workflow: {workflow.workflow_tag}", "info")
 
-    endpoint = "update" if update else "create"
+    for data_collection in workflow.data_collections:
+        # Skip if a specific tag is provided and it doesn't match
+        if data_collection_tag and data_collection.data_collection_tag.lower() != data_collection_tag.lower():
+                        logger.info(f"Skipping data collection: {data_collection.data_collection_tag}")
+            continue
 
-    exists, _ = check_workflow_exists(cli_config["api_base_url"], workflow_data_dict, headers)
+        # Process the matching data collection
+        logger.info(f"Processing data collection: {data_collection.data_collection_tag}")
+        dc_id = str(data_collection.id)
+        process_data_collection_helper(CLI_config=CLI_config, wf=workflow, dc_id=dc_id, rescan_folders=rescan_folders, update_files=update_files)
 
-    logger.debug(f"Workflow {exists}")
-    logger.debug(f"Update: {update}")
+# def create_update_delete_workflow(
+#     project_config: dict,
+#     workflow_data_dict: dict,
+#     headers: dict,
+#     cli_config: dict,
+#     update: bool = False,
+# ) -> None:
+#     """
+#     Create or update a workflow based on the update flag.
+#     """
+#     logger.debug(f"Workflow data dict: {workflow_data_dict}")
 
-    logger.debug(f"Endpoint: {endpoint}")
-    logger.debug(f"Agent config: {cli_config}")
+#     endpoint = "update" if update else "create"
 
-    logger.debug(f"Headers: {headers}")
-    logger.debug(f"_ : {_}")
-    typer.Exit(code=1)
+#     exists, _ = check_workflow_exists(cli_config["api_base_url"], workflow_data_dict, headers)
 
-    # Check if the workflow exists
-    if exists:
-        # If the workflow exists, check if there is a conflict with the existing workflow
-        logger.debug(f"Existing workflow: {_}")
-        logger.debug(f"New workflow: {workflow_data_dict}")
+#     logger.debug(f"Workflow {exists}")
+#     logger.debug(f"Update: {update}")
 
-        check_modif = compare_models(cli_config, workflow_data_dict, _, headers)
+#     logger.debug(f"Endpoint: {endpoint}")
+#     logger.debug(f"Agent config: {cli_config}")
 
-        logger.debug(f"Check modification: {check_modif}")
-        typer.Exit(code=1)
+#     logger.debug(f"Headers: {headers}")
+#     logger.debug(f"_ : {_}")
+#     typer.Exit(code=1)
 
-        # If the workflow exists but there is a conflict, check if the user wants to update the existing workflow
-        if not check_modif:
-            # If the user does not want to update the existing workflow, exit
-            if not update:
-                sys.exit(
-                    f"Workflow {workflow_data_dict['workflow_tag']} already exists but with different configuration. Please use the --update flag to update the existing workflow."
-                )
+#     # Check if the workflow exists
+#     if exists:
+#         # If the workflow exists, check if there is a conflict with the existing workflow
+#         logger.debug(f"Existing workflow: {_}")
+#         logger.debug(f"New workflow: {workflow_data_dict}")
 
-            # If the user wants to update the existing workflow, update it
-            else:
-                logger.info(f"Workflow {workflow_data_dict['workflow_tag']} already exists, updating it.")
-                return send_workflow_request(cli_config, endpoint, workflow_data_dict, headers)
+#         check_modif = compare_models(cli_config, workflow_data_dict, _, headers)
 
-        # If the workflow exists and there is no conflict, skip the creation
-        else:
-            if check_modif["match"]:
+#         logger.debug(f"Check modification: {check_modif}")
+#         typer.Exit(code=1)
 
-                logger.warning(f"Workflow {workflow_data_dict['workflow_tag']} already exists, skipping creation.")
-                # return_dict = {str(_["_id"]): [str(data_collection["_id"]) for data_collection in _["data_collections"]]}
-                # logger.info(f"Return dict: {return_dict}")
-                # return return_dict
+#         # If the workflow exists but there is a conflict, check if the user wants to update the existing workflow
+#         if not check_modif:
+#             # If the user does not want to update the existing workflow, exit
+#             if not update:
+#                 sys.exit(
+#                     f"Workflow {workflow_data_dict['workflow_tag']} already exists but with different configuration. Please use the --update flag to update the existing workflow."
+#                 )
 
-                return _
-            else:
-                if not update:
-                    sys.exit(
-                        f"Workflow {workflow_data_dict['workflow_tag']} already exists but with different configuration. Please use the --update flag to update the existing workflow."
-                    )
-                else:
-                    logger.info(f"Workflow {workflow_data_dict['workflow_tag']} already exists, updating it.")
-                    return send_workflow_request(cli_config, endpoint, workflow_data_dict, headers)
+#             # If the user wants to update the existing workflow, update it
+#             else:
+#                 logger.info(f"Workflow {workflow_data_dict['workflow_tag']} already exists, updating it.")
+#                 return send_workflow_request(cli_config, endpoint, workflow_data_dict, headers)
 
-    # If the workflow does not exist, create it
-    logger.info(f"Workflow {workflow_data_dict['name']} does not exist, creating it.")
-    logger.info(f"Endpoint: {endpoint}")
-    workflow_json = send_workflow_request(cli_config, endpoint, workflow_data_dict, headers)
-    return workflow_json
+#         # If the workflow exists and there is no conflict, skip the creation
+#         else:
+#             if check_modif["match"]:
+#                 logger.warning(f"Workflow {workflow_data_dict['workflow_tag']} already exists, skipping creation.")
+#                 # return_dict = {str(_["_id"]): [str(data_collection._id) for data_collection in _["data_collections"]]}
+#                 # logger.info(f"Return dict: {return_dict}")
+#                 # return return_dict
 
+#                 return _
+#             else:
+#                 if not update:
+#                     sys.exit(
+#                         f"Workflow {workflow_data_dict['workflow_tag']} already exists but with different configuration. Please use the --update flag to update the existing workflow."
+#                     )
+#                 else:
+#                     logger.info(f"Workflow {workflow_data_dict['workflow_tag']} already exists, updating it.")
+#                     return send_workflow_request(cli_config, endpoint, workflow_data_dict, headers)
 
-
-def process_workflow_helper(cli_config, wf, headers, scan_files=True, data_collection_tag=None):
-    logger.info(f"Processing Workflow: {wf['name']}")
-    wf_id = str(wf["_id"])
-    for dc in wf["data_collections"]:
-        logger.info(f"Processing Data collection: {dc['data_collection_tag']}")
-        if data_collection_tag:
-            logger.info(f"Data collection tag: {data_collection_tag}")
-            if dc["data_collection_tag"].lower() == data_collection_tag.lower():
-                process_data_collection_helper(cli_config, wf_id, dc, headers)
-        else:
-            process_data_collection_helper(cli_config, wf_id, dc, headers)
-
-
-def process_project_helper(cli_config, project_config, headers, update, scan_files, data_collection_tag):
-    """
-    Process the project.
-    """
-    logger.info(f"Processing project: {project_config['name']}")
-
-    # Populate DB with the validated config for each workflow
-    for workflow in project_config["workflows"]:
-        logger.info(f"Processing workflow: {workflow['engine']}/{workflow['name']}")
-        response_body = create_update_delete_workflow(project_config, workflow, headers, cli_config, update=update)
-        logger.debug(f"Response body: {response_body}")
-        # process_workflow_helper(cli_config, response_body, headers, scan_files=scan_files, data_collection_tag=data_collection_tag)
+#     # If the workflow does not exist, create it
+#     logger.info(f"Workflow {workflow_data_dict['name']} does not exist, creating it.")
+#     logger.info(f"Endpoint: {endpoint}")
+#     workflow_json = send_workflow_request(cli_config, endpoint, workflow_data_dict, headers)
+#     return workflow_json
