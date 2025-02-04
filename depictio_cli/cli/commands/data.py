@@ -17,7 +17,7 @@ def scan(
     project_config_path: Annotated[str, typer.Option("--project-config-path", help="Path to the pipeline configuration file")] = "",
     workflow_name: Annotated[str, typer.Option("--workflow-name", help="Name of the workflow to be scanned")] = None,
     data_collection_tag: Annotated[str, typer.Option("--data-collection-tag", help="Data collection tag to be scanned")] = None,
-    reprocess_runs: bool = typer.Option(False, "--reprocess-runs", help="Reprocess all runs for the data collection"),
+    rescan_folders: bool = typer.Option(False, "--rescan-folders", help="Reprocess all runs for the data collection"),
     update_files: bool = typer.Option(False, "--update-files", help="Update files for the data collection"),
 ):
     """
@@ -28,13 +28,17 @@ def scan(
         project_config_path (Annotated[str, typer.Option, optional): _description_. Defaults to "Path to the pipeline configuration file")]="".
         workflow_name (Annotated[str, typer.Option, optional): _description_. Defaults to "Name of the workflow to be scanned")]="",
         data_collection_tag (Optional[str], optional): _description_. Defaults to typer.Option(None, "--data-collection-tag", help="Data collection tag to be scanned").
-        reprocess_runs (Annotated[bool, typer.Option, optional): _description_. Defaults to "Reprocess all runs for the data collection")]=False.
-        update_files (Annotated[bool, typer.Option, optional): _description_. Defaults to "Update files for the data collection")]=False.
+        rescan_folders (Annotated[bool, typer.Option, optional): _description_. Defaults to "Reprocess all runs for the data collection")]=False.
+        update_files (Annotated[bool, typer.Option, optional): _description_. Defaults to "Update files for the data collection. rescan-folders will be enabled if used.")]=False.
     """
     rich_print_command_usage("scan")
 
-    logger.info(f"Reprocessing runs: {reprocess_runs}")
+    if update_files:
+        rescan_folders = True
+
+    logger.info(f"Reprocessing runs: {rescan_folders}")
     logger.info(f"Updating files: {update_files}")
+
     # Validate configurations and prepare headers
     CLI_config, response = validate_project_config_and_check_S3_storage(CLI_config_path=CLI_config_path, project_config_path=project_config_path)
 
@@ -68,7 +72,7 @@ def scan(
                     project_config=project_config,
                     workflow_name=workflow_name,
                     data_collection_tag=data_collection_tag,
-                    reprocess_runs=reprocess_runs,
+                    rescan_folders=rescan_folders,
                     update_files=update_files,
                 )
 

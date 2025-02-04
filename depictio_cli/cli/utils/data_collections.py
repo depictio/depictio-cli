@@ -43,20 +43,20 @@ from depictio_models.models.workflows import Workflow
 
 
 @typechecked
-def process_data_collection_helper(CLI_config: CLIConfig, wf: Workflow, dc_id: str, reprocess_runs: bool = False, update_files: bool = False) -> None:
+def process_data_collection_helper(CLI_config: CLIConfig, wf: Workflow, dc_id: str, rescan_folders: bool = False, update_files: bool = False) -> None:
     """_summary_
 
     Args:
         CLI_config (CLIConfig): _description_
         wf (Workflow): _description_
         dc_id (str): _description_
-        reprocess_runs (bool, optional): _description_. Defaults to False.
+        rescan_folders (bool, optional): _description_. Defaults to False.
         update_files (bool, optional): _description_. Defaults to False.
     """
     dc = next((dc for dc in wf.data_collections if str(dc.id) == dc_id), None)
     rich_print_checked_statement(f"Processing Data collection: {dc.data_collection_tag}", "info")
     logger.info(f"Processing Data collection: {dc}")
-    scan_files_for_data_collection(workflow=wf, data_collection_id=dc_id, reprocess_runs=reprocess_runs, update_files=update_files)
+    scan_files_for_data_collection(workflow=wf, data_collection_id=dc_id, rescan_folders=rescan_folders, update_files=update_files)
     rich_print_checked_statement(f"Data collection {dc.data_collection_tag} processed successfully", "success")
 
     # if dc["config"]["type"].lower() == "table":

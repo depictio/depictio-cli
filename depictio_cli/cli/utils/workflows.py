@@ -106,7 +106,7 @@ def compare_models(cli_config: dict, new_workflow: dict, existing_workflow: dict
 
 
 @typechecked
-def process_workflow_helper(CLI_config: CLIConfig, workflow: Workflow, data_collection_tag: Optional[str] = None, reprocess_runs: bool = False, update_files: bool = False) -> None:
+def process_workflow_helper(CLI_config: CLIConfig, workflow: Workflow, data_collection_tag: Optional[str] = None, rescan_folders: bool = False, update_files: bool = False) -> None:
     """
     Process a workflow's data collections, optionally filtering by a specific data collection tag.
 
@@ -115,7 +115,7 @@ def process_workflow_helper(CLI_config: CLIConfig, workflow: Workflow, data_coll
         workflow (dict): Workflow configuration containing data collections.
         data_collection_tag (str, optional): Specific data collection tag to process.
                                              If None, all data collections are processed.
-        reprocess_runs (bool, optional): Reprocess the runs for the data collections.
+        rescan_folders (bool, optional): Reprocess the runs for the data collections.
         update_files (bool, optional): Update the files for the data collections.
     """
     logger.info(f"Processing Workflow: {workflow.name}")
@@ -130,7 +130,7 @@ def process_workflow_helper(CLI_config: CLIConfig, workflow: Workflow, data_coll
         # Process the matching data collection
         logger.info(f"Processing data collection: {data_collection.data_collection_tag}")
         dc_id = str(data_collection.id)
-        process_data_collection_helper(CLI_config=CLI_config, wf=workflow, dc_id=dc_id, reprocess_runs=reprocess_runs, update_files=update_files)
+        process_data_collection_helper(CLI_config=CLI_config, wf=workflow, dc_id=dc_id, rescan_folders=rescan_folders, update_files=update_files)
 
 # def create_update_delete_workflow(
 #     project_config: dict,

@@ -308,7 +308,7 @@ def scan_run(
     workflow_config: WorkflowConfig,
     data_collection: DataCollection,
     workflow_id: ObjectId,
-    reprocess_runs: bool = False,
+    rescan_folders: bool = False,
     update_files: bool = False,
     dbmanager: Optional[DBManager] = None,
 ) -> Union[WorkflowRun, None]:
@@ -322,7 +322,7 @@ def scan_run(
         workflow_config (WorkflowConfig): The workflow configuration object.
         data_collection (DataCollection): The data collection configuration object.
         workflow_id (ObjectId): The ID of the workflow.
-        reprocess_runs (bool): Whether to reprocess the runs.
+        rescan_folders (bool): Whether to reprocess the runs.
         update_files (bool): Whether to update file information.
         dbmanager (DBManager, optional): An instance of DBManager. One is created if not provided.
 
@@ -345,7 +345,7 @@ def scan_run(
     logger.debug(f"Existing Run: {existing_run}")
     if existing_run:
         logger.debug(f"Run {run_tag} already exists in the database.")
-        if reprocess_runs:
+        if rescan_folders:
             logger.info(f"Reprocessing run {run_tag}...")
             existing_run["id"] = PyObjectId(existing_run["id"])
             existing_run["workflow_config_id"] = PyObjectId(existing_run["workflow_config_id"])
@@ -405,18 +405,18 @@ def scan_run(
 
     if workflow_run.hash != "":
         logger.debug(f"Existing run hash: {workflow_run.hash}")
-        if reprocess_runs:
+        if rescan_folders:
             differences = check_run_differences(workflow_run, run_location, creation_time, last_modification_time, files)
             logger.debug(f"Differences: {differences}")
             # rich_print_checked_statement(f"Reprocessing run {run_tag}...", "info")
 
-        elif not reprocess_runs:
+        elif not rescan_folders:
             if workflow_run.hash != run_hash:
                 logger.warning(f"Hash mismatch for run {run_tag}.")
                 differences = check_run_differences(workflow_run, run_location, creation_time, last_modification_time, files)
                 logger.debug(f"Differences: {differences}")
                 rich_print_checked_statement(
-                    f"Hash mismatch for run {run_tag}. The run content has changed since the last scan. Please use --reprocess-runs to update the run content or check the logs for more details.",
+                    f"Hash mismatch for run {run_tag}. The run content has changed since the last scan. Please use --rescan-folders to update the run content or check the logs for more details.",
                     "error",
                     exit=True,
                 )
@@ -426,7 +426,7 @@ def scan_run(
 
     workflow_run.hash = run_hash
     # Upsert the workflow run into the local database
-    dbmanager.upsert_runs_batch([workflow_run.tinydb()], update=reprocess_runs)
+    dbmanager.upsert_runs_batch([workflow_run.tinydb()], update=rescan_folders)
 
     return workflow_run
 
@@ -439,7 +439,7 @@ def scan_parent_folder(
     data_location: WorkflowDataLocation,
     workflow_id: ObjectId,
     structure: str = "sequencing-runs",  # or "direct-folder"
-    reprocess_runs: bool = False,
+    rescan_folders: bool = False,
     update_files: bool = False,
 ) -> List[Union[WorkflowRun, None]]:
     """
@@ -453,7 +453,7 @@ def scan_parent_folder(
         data_location (WorkflowDataLocation): The data location configuration object.
         workflow_id (ObjectId): The ID of the workflow.
         structure (str): "sequencing-runs" to scan subdirectories, "direct-folder" to scan the folder itself.
-        reprocess_runs (bool): Whether to reprocess the runs.
+        rescan_folders (bool): Whether to reprocess the runs.
         update_files (bool): Whether to update file information.
 
     Returns:
@@ -476,7 +476,7 @@ def scan_parent_folder(
             workflow_config=workflow_config,
             data_collection=data_collection,
             workflow_id=workflow_id,
-            reprocess_runs=reprocess_runs,
+            rescan_folders=rescan_folders,
             update_files=update_files,
             dbmanager=dbmanager,
         )
@@ -492,7 +492,7 @@ def scan_parent_folder(
                     workflow_config=workflow_config,
                     data_collection=data_collection,
                     workflow_id=workflow_id,
-                    reprocess_runs=reprocess_runs,
+                    rescan_folders=rescan_folders,
                     update_files=update_files,
                     dbmanager=dbmanager,
                 )
@@ -507,7 +507,7 @@ def scan_parent_folder(
 def scan_files_for_data_collection(
     workflow: Workflow,
     data_collection_id: str,
-    reprocess_runs: bool = False,
+    rescan_folders: bool = False,
     update_files: bool = False,
 ) -> None:
     """
@@ -517,7 +517,7 @@ def scan_files_for_data_collection(
         workflow (Workflow): The workflow configuration object.
         data_collection_id (str): The ID of the data collection to scan.
         data_collection_metatype (str): The metatype of the data collection.
-        reprocess_runs (bool): Whether to reprocess the runs (default is False).
+        rescan_folders (bool): Whether to reprocess the runs (default is False).
         update_files (bool): Whether to update the files (default is False).
     """
     workflow_id = workflow.id
@@ -577,7 +577,7 @@ def scan_files_for_data_collection(
                 data_collection=data_collection,
                 workflow_id=workflow_id,
                 structure=workflow.data_location.structure,
-                reprocess_runs=reprocess_runs,
+                rescan_folders=rescan_folders,
                 update_files=update_files,
             )
             logger.debug(f"Runs and content: {runs_and_content}")

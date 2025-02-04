@@ -13,7 +13,7 @@ def process_project_helper(
     project_config: Project,
     workflow_name: Optional[str] = None,
     data_collection_tag: Optional[str] = None,
-    reprocess_runs: bool = False,
+    rescan_folders: bool = False,
     update_files: bool = False,
 ):
     """
@@ -47,5 +47,5 @@ def process_project_helper(
     for workflow in workflows:
         logger.info(f"Processing workflow: {workflow.workflow_tag}")
         rich_print_checked_statement(f"Processing workflow: {workflow.workflow_tag}", "info")
-        process_workflow_helper(CLI_config=CLI_config, workflow=workflow, data_collection_tag=data_collection_tag, reprocess_runs=reprocess_runs, update_files=update_files)
+        process_workflow_helper(CLI_config=CLI_config, workflow=workflow, data_collection_tag=data_collection_tag, rescan_folders=rescan_folders, update_files=update_files)
         rich_print_checked_statement(f"Workflow {workflow.workflow_tag} processed successfully", "success")
