@@ -13,9 +13,13 @@ app = typer.Typer()
 
 
 @app.callback()
-def callback(verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging", is_eager=True)):
+def verbose_callback(
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging", is_eager=True),
+    verbose_level = typer.Option("INFO", "--verbose-level", "-vl", help="Set verbose logging level", is_eager=True),
+    ):
     """Set up logging for all commands"""
-    setup_logging(verbose)
+    setup_logging(verbose, verbose_level)
+
 
 
 app.add_typer(config, name="config")
