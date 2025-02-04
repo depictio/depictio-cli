@@ -12,7 +12,7 @@ workflows:
   ## Workflow for the MosaiCatcher pipeline
 
     # The name of the workflow
-  - name: "mosaicatcher-pipeline2"
+  - name: "mosaicatcher-pipeline"
     # Engine that is used to run the workflow
     engine: 
       name: "snakemake"
@@ -23,18 +23,21 @@ workflows:
     repository_url: "https://github.com/friendsofstrandseq/mosaicatcher-pipeline"
 
     # The configuration to retrieve workflow data
-    config:
+    data_location:
 
-      # TODO: to turn into a dict (location - regex)
-      # The location of the runs - multiple locations can be specified
-      parent_runs_location:
+      # The mode to retrieve the data (options: "sequencing-runs", "flat")
+      structure: "sequencing-runs"
+
+      # # TODO: to turn into a dict (location - regex)
+      # # The location of the runs - multiple locations can be specified
+      locations:
         # - "${DEPICTIO_BACKEND_EXAMPLE_DATA_VOLUME_HOST}/StrandSeq/HGSVC"
         # - "{DATA_LOCATION}/mosaicatcher-pipeline-2024"
         - "/Users/tweber/Data/mosaicatcher-pipeline-2024"
         # - "${DEPICTIO_BACKEND_DATA_VOLUME_HOST}/mosaicatcher-pipeline-2024"
         # - "/app/depictio-example-data/mosaicatcher-pipeline-2024"
 
-      # Regular expression to match the runs
+      # # Regular expression to match the runs - only when mode is "sequencing-runs"
       runs_regex: ".*"
 
     # Data collections that are associated with the workflow
