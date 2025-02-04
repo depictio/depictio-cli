@@ -11,6 +11,7 @@ from depictio_cli.cli.utils.s3 import S3_storage_checks
 from depictio_cli.logging import logger
 
 # depictio-models imports
+from depictio_models.models.cli import CLIConfig
 from depictio_models.utils import validate_model_config
 from depictio_models.models.projects import Project
 from depictio_models.models.base import convert_objectid_to_str
@@ -36,6 +37,7 @@ KEYS_TO_SAVE = {
     ],
 }
 
+
 @typechecked
 def validate_project_config_and_check_S3_storage(CLI_config_path: str, project_config_path: str):
     """
@@ -52,12 +54,12 @@ def validate_project_config_and_check_S3_storage(CLI_config_path: str, project_c
         # Check S3 accessibility
         S3_storage_checks(CLI_config)
 
+        CLI_config = CLIConfig(**CLI_config)
         # Validate the project configuration
         response_validation = local_validate_project_config(CLI_config, project_config_path)
         return CLI_config, response_validation
     else:
         raise typer.Exit(code=1)
-
 
 
 def find_by_name(collection, name):
@@ -118,8 +120,9 @@ def assign_ids_by_keys(existing_meta, new_structure):
 
     return new_structure
 
+
 @typechecked
-def load_and_prepare_config(CLI_config: dict, project_yaml_config_path: str) -> dict:
+def load_and_prepare_config(CLI_config: CLIConfig, project_yaml_config_path: str) -> dict:
     """
     Load the pipeline configuration, set the YAML config path, and add permissions.
     """
@@ -129,12 +132,18 @@ def load_and_prepare_config(CLI_config: dict, project_yaml_config_path: str) -> 
     project_config["yaml_config_path"] = full_path
 
     # Add permissions based on the CLI user, removing 'token'
-    user_light = CLI_config["user"].copy()
-    user_light.pop("token", None)
+    # user_light = CLI_config["user"].copy()
+    # user_light.pop("token", None)
+    user_light = CLI_config.user.model_copy()
+    user_light.token = None
+    user_light = user_light.model_dump()
+
     project_config["permissions"] = {"owners": [user_light], "editors": [], "viewers": []}
+    # project_config["permissions"] = {"owners": [user_light], "editors": [], "viewers": []}
 
     logger.debug(f"Pipeline config after adding permissions: {project_config}")
     return project_config
+
 
 @typechecked
 def merge_existing_ids(local_metadata: list, project_config: dict) -> dict:
@@ -147,6 +156,7 @@ def merge_existing_ids(local_metadata: list, project_config: dict) -> dict:
 
     # Check if the project exists and is owned by the same user
     if existing_entry:
+        logger.info(f"Project : {project_config}")
         user_id = project_config["permissions"]["owners"][0]["id"]
         if existing_entry["permissions"]["owners"][0]["id"] != user_id:
             raise ValueError(f"Project '{project_name}' exists but is owned by a different user.")
@@ -172,6 +182,7 @@ def extract_metadata(data, keys_structure):
     else:
         return data
 
+
 @typechecked
 def create_metadata_entry(validated_config: Project, keys_to_save: dict) -> dict:
     """
@@ -187,8 +198,9 @@ def create_metadata_entry(validated_config: Project, keys_to_save: dict) -> dict
     logger.debug(f"Metadata entry: {metadata_entry}")
     return metadata_entry
 
+
 @typechecked
-def local_validate_project_config(CLI_config: dict, project_yaml_config_path: str) -> dict:
+def local_validate_project_config(CLI_config: CLIConfig, project_yaml_config_path: str) -> dict:
     """
     Validate the pipeline configuration locally and update the metadata.
     """
@@ -203,6 +215,7 @@ def local_validate_project_config(CLI_config: dict, project_yaml_config_path: st
         local_metadata = load_metadata()
 
         # Check if project already exists and merge IDs if necessary
+        logger.info(f"Project config : {project_config}")
         if project_config["name"] in [entry["name"] for entry in local_metadata]:
             project_config = merge_existing_ids(local_metadata, project_config)
 
@@ -213,6 +226,17 @@ def local_validate_project_config(CLI_config: dict, project_yaml_config_path: st
         # Create metadata entry and update metadata
         metadata_entry = create_metadata_entry(validated_config, KEYS_TO_SAVE)
         update_metadata(metadata_entry)
+        logger.info(f"Metadata updated with new entry: {metadata_entry}")
+
+        # add computed hash to the validated config
+        validated_config.hash = metadata_entry["hash"]
+        logger.info(f"Pipeline configuration with hash: {validated_config}")
+
+        tmp_validated_config = validated_config.mongo()
+        logger.info(f"mongo -Pipeline configuration with hash: {tmp_validated_config}")
+
+        tmp_validated_config = Project.from_mongo(tmp_validated_config)
+        logger.info(f"from_mongo - Pipeline configuration with hash: {tmp_validated_config}")
 
         return {"success": True, "config": metadata_entry, "project_config": validated_config}
 
