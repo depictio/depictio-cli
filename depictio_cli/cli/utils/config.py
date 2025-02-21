@@ -4,7 +4,7 @@ import os, yaml, typer
 from typeguard import typechecked
 
 # depictio-cli imports
-from depictio_cli.cli.utils.api_calls import api_login
+from depictio_cli.cli.utils.api_calls import api_get_project_from_name, api_login
 from depictio_cli.cli.utils.common import get_config
 from depictio_cli.cli.utils.metadata import load_metadata, update_metadata
 from depictio_cli.cli.utils.s3 import S3_storage_checks
@@ -83,6 +83,7 @@ def find_matching_entry(collection, new_item):
         if not isinstance(item, dict):
             continue
         # Check for match on 'name'
+        logger.debug(f"Item: {item}")
         if "name" in new_item and new_item["name"] == item.get("name"):
             return item
         # Check for match on 'workflow_tag'
@@ -99,10 +100,13 @@ def assign_ids_by_keys(existing_meta, new_structure):
     Recursively traverses new_structure. For each dict with identifying keys,
     attempts to find a matching dict in existing_meta to copy its 'id'.
     """
+    logger.debug(f"Assigning IDs by keys for {new_structure}")
+    logger.debug(f"Existing metadata: {existing_meta}")
     if isinstance(new_structure, dict):
         match = find_matching_entry(existing_meta, new_structure)
         if match and "id" in match:
-            new_structure["id"] = match["id"]
+            logger.debug(f"Match found for {new_structure}: {match} ; ID: {match['id']}")
+            new_structure["id"] = str(match["id"])
 
         # Recurse into nested dictionaries or lists
         for key, value in new_structure.items():
@@ -146,25 +150,28 @@ def load_and_prepare_config(CLI_config: CLIConfig, project_yaml_config_path: str
 
 
 @typechecked
-def merge_existing_ids(local_metadata: list, project_config: dict) -> dict:
+def merge_existing_ids(existing_entry: dict, project_config: dict) -> dict:
     """
     If a project with the same name exists, checks ownership and merges existing IDs.
     """
+
+    logger.info(f"Merge existing IDs for project: {project_config['name']}")
     # Assuming local_metadata is a list of project dicts
     project_name = project_config["name"]
-    existing_entry = next((entry for entry in local_metadata if entry["name"] == project_name), None)
+    # existing_entry = next((entry for entry in local_metadata if entry["name"] == project_name), None)
 
     # Check if the project exists and is owned by the same user
     if existing_entry:
         logger.info(f"Project : {project_config}")
         user_id = project_config["permissions"]["owners"][0]["id"]
+        logger.info(f"Existing entry user ID: {existing_entry['permissions']['owners'][0]['id']}")
         if existing_entry["permissions"]["owners"][0]["id"] != user_id:
             raise ValueError(f"Project '{project_name}' exists but is owned by a different user.")
 
         logger.info(f"Project owner is the same for '{project_name}' - Owner ID: {user_id}")
         logger.info(f"Project '{project_name}' exists with ID: {existing_entry['id']}")
         # Merge existing IDs using the provided function
-        project_config = assign_ids_by_keys(local_metadata, project_config)
+        project_config = assign_ids_by_keys([existing_entry], project_config)
         logger.debug(f"Project config after merging IDs: {project_config}")
 
     return project_config
@@ -211,34 +218,40 @@ def local_validate_project_config(CLI_config: CLIConfig, project_yaml_config_pat
         logger.debug(f"CLI config: {CLI_config}")
         logger.debug(f"Project config: {project_config}")
 
-        # Load existing metadata and merge IDs if necessary
-        local_metadata = load_metadata()
-
-        # Check if project already exists and merge IDs if necessary
-        logger.info(f"Project config : {project_config}")
-        if project_config["name"] in [entry["name"] for entry in local_metadata]:
-            project_config = merge_existing_ids(local_metadata, project_config)
-
         # Validate configuration against the Project model
         validated_config = validate_model_config(project_config, Project)
+
+        # Load existing metadata and merge IDs if necessary
+        # local_metadata = load_metadata()
+        response = api_get_project_from_name(project_config["name"], CLI_config)
+        if response.status_code == 200:
+            remote_project = response.json()
+            logger.info(f"Remote project : {remote_project}")
+
+            validated_config = merge_existing_ids(remote_project, convert_objectid_to_str(validated_config.to_json()))
+            validated_config = Project.from_mongo(validated_config)
+
+        # else:
+        #     validated_config = Project.from_mongo(validated_config)
+
         logger.info(f"Pipeline configuration validated: {validated_config}")
 
         # Create metadata entry and update metadata
-        metadata_entry = create_metadata_entry(validated_config, KEYS_TO_SAVE)
-        update_metadata(metadata_entry)
-        logger.info(f"Metadata updated with new entry: {metadata_entry}")
+        # metadata_entry = create_metadata_entry(validated_config, KEYS_TO_SAVE)
+        # update_metadata(metadata_entry)
+        # logger.info(f"Metadata updated with new entry: {metadata_entry}")
 
-        # add computed hash to the validated config
-        validated_config.hash = metadata_entry["hash"]
-        logger.info(f"Pipeline configuration with hash: {validated_config}")
+        # # add computed hash to the validated config
+        # # validated_config.hash = metadata_entry["hash"]
+        # logger.info(f"Pipeline configuration with hash: {validated_config}")
 
-        tmp_validated_config = validated_config.mongo()
-        logger.info(f"mongo -Pipeline configuration with hash: {tmp_validated_config}")
+        # tmp_validated_config = validated_config.mongo()
+        # logger.info(f"mongo -Pipeline configuration with hash: {tmp_validated_config}")
 
-        tmp_validated_config = Project.from_mongo(tmp_validated_config)
-        logger.info(f"from_mongo - Pipeline configuration with hash: {tmp_validated_config}")
+        # tmp_validated_config = Project.from_mongo(tmp_validated_config)
+        # logger.info(f"from_mongo - Pipeline configuration with hash: {tmp_validated_config}")
 
-        return {"success": True, "config": metadata_entry, "project_config": validated_config}
+        return {"success": True, "config": validated_config, "project_config": validated_config}
 
     except ValueError as e:
         logger.error(f"Pipeline configuration validation failed: {e}")

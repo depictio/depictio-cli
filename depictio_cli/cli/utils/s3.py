@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic import validate_call
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
 
-from depictio_models.models.s3 import MinIOS3Config
+from depictio_models.models.cli import CLIConfig
+from depictio_models.models.s3 import MinIOS3Config, PolarsStorageOptions
 from depictio_models.logging import logger
 
-from depictio_cli.cli.utils.rich_utils import rich_print_checked_statement, rich_print_json
+from depictio_cli.cli.utils.rich_utils import rich_print_checked_statement
+
 
 class S3ProviderBase(ABC):
     def __init__(self, bucket_name):
@@ -96,6 +97,7 @@ class MinIOManager(S3ProviderBase):
 #     # Perform checks and suggest adjustments
 #     s3_manager.suggest_adjustments()
 
+
 def S3_storage_checks(cli_config):
     """
     Check if the S3 endpoint, access key, secret key, and bucket are accessible.
@@ -108,3 +110,16 @@ def S3_storage_checks(cli_config):
     minio_manager = MinIOManager(MinIOS3Config(**s3_config))
     logger.info("MinIOManager initialized.")
     minio_manager.suggest_adjustments()
+
+
+@validate_call
+def turn_S3_config_into_polars_storage_options(cli_config: CLIConfig):
+    """
+    Convert S3 configuration into storage options for the client.
+    """
+    s3_config = cli_config.s3_storage
+    return PolarsStorageOptions(
+        endpoint_url=f"{s3_config.endpoint}:{s3_config.port}",
+        aws_access_key_id=s3_config.minio_root_user,
+        aws_secret_access_key=s3_config.minio_root_password,
+    )

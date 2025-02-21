@@ -19,8 +19,8 @@ def generate_api_headers(CLI_config: CLIConfig) -> dict:
         raise ValueError("CLI_config is required.")
 
     if isinstance(CLI_config, CLIConfig):
-        logger.info(f"CLI_config: {CLI_config}")
-        logger.info(f"Type of CLI_config: {type(CLI_config)}")
+        # logger.debug(f"CLI_config: {CLI_config}")
+        # logger.debug(f"Type of CLI_config: {type(CLI_config)}")
         cli_config_dict = CLI_config.model_dump()
 
     elif isinstance(CLI_config, dict):
