@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 
 from depictio_cli.cli.utils.metadata import load_metadata
 from depictio_models.utils import convert_model_to_dict
-from depictio_cli.cli.utils.api_calls import api_sync_project_config_to_server
+from depictio_cli.cli.utils.api_calls import api_get_project_from_name, api_sync_project_config_to_server
 from depictio_cli.cli.utils.common import load_depictio_config
 from depictio_cli.cli.utils.config import validate_project_config_and_check_S3_storage
 from depictio_cli.cli.utils.s3 import S3_storage_checks
@@ -53,13 +53,18 @@ def check_s3_storage(
 
 
 @app.command()
-def show_depictio_json_metadata():
+def show_depictio_project_metadata_on_server(
+    CLI_config_path: Annotated[str, typer.Option("--CLI-config-path", help="Path to the configuration file")] = "~/.depictio/CLI.yaml",
+    project_name: Annotated[str, typer.Option("--project-name", help="Name of the project")] = "",
+):
     """
     Show Depictio metadata for registered Depictio projects in the JSON format.
     """
     rich_print_command_usage("show_depictio_json_metadata")
     try:
-        metadata = load_metadata()
+        CLI_config = load_depictio_config(yaml_config_path=CLI_config_path)
+        project_metadata = api_get_project_from_name(project_name, CLI_config)
+        metadata = project_metadata.json()
         rich_print_json("Depictio metadata for registered Depictio projects: ", metadata)
     except Exception as e:
         rich_print_checked_statement(f"Unable to load metadata - {e}", "error")
@@ -72,7 +77,7 @@ def validate_project_config(
 ):
     """
     Validate the Depictio Project configuration.
-    
+
     Args:
         CLI_config_path (Annotated[str, typer.Option, optional): _description_. Defaults to "Path to the configuration file")]="~/.depictio/CLI.yaml".
         project_config_path (Annotated[str, typer.Option, optional): _description_. Defaults to "Path to the pipeline configuration file")]="",
