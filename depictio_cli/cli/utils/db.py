@@ -22,48 +22,49 @@ FILES_TABLE = "files"
 FILE_INDEX_FIELDS = ["file_hash", "run_id", "data_collection_id"]
 RUN_INDEX_FIELDS = ["status", "workflow_id"]
 
+
 class DBManager:
     """Main database manager class with batch operations and extended functionalities"""
-    
-    #region Core Functions
+
+    # region Core Functions
     @staticmethod
     def upsert_runs_batch(runs_data: List[Dict], update: bool = False):
         """Batch upsert runs with conflict resolution"""
         runs_table = db.table(RUNS_TABLE)
-        existing_ids = {run['id'] for run in runs_table.all()}
-        
+        existing_ids = {run["id"] for run in runs_table.all()}
+
         updated_runs = []
         inserts = []
         for run in runs_data:
-            if run['id'] in existing_ids:
+            if run["id"] in existing_ids:
                 updated_runs.append(run)
             else:
                 inserts.append(run)
-        
+
         if inserts:
             runs_table.insert_multiple(inserts)
         if update:
             if updated_runs:
                 for run in updated_runs:
-                    runs_table.update(run, Query().id == run['id'])
+                    runs_table.update(run, Query().id == run["id"])
 
     @staticmethod
     def upsert_files_batch(files_data: List[Dict], update: bool = False):
         """Batch upsert files with hash-based conflict detection"""
         files_table = db.table(FILES_TABLE)
-        existing_hashes = {doc['file_hash'] for doc in files_table.all()}
-        
-        new_files = [f for f in files_data if f['file_hash'] not in existing_hashes]
-        updated_files = [f for f in files_data if f['file_hash'] in existing_hashes]
+        existing_hashes = {doc["file_hash"] for doc in files_table.all()}
+
+        new_files = [f for f in files_data if f["file_hash"] not in existing_hashes]
+        updated_files = [f for f in files_data if f["file_hash"] in existing_hashes]
 
         if new_files:
             files_table.insert_multiple(new_files)
         if update:
             if updated_files:
                 for file_data in updated_files:
-                    files_table.update(file_data, Query().file_hash == file_data['file_hash'])
+                    files_table.update(file_data, Query().file_hash == file_data["file_hash"])
 
-    #region Update Operations
+    # region Update Operations
     @staticmethod
     def update_file(file_id: str, update_data: Dict):
         """Update a single file's metadata"""
@@ -79,9 +80,9 @@ class DBManager:
         files_table = db.table(FILES_TABLE)
         files_table.update(update_data, query_condition)
 
-    #endregion
+    # endregion
 
-    #region Delete Operations
+    # region Delete Operations
     @staticmethod
     def delete_file(file_id: str):
         """Delete a single file by its ID"""
@@ -108,15 +109,26 @@ class DBManager:
         """Batch delete files by their hashes"""
         files_table = db.table(FILES_TABLE)
         files_table.remove(Query().file_hash.one_of(file_hashes))
-    #endregion
 
-    #region Query Helpers
+    # endregion
 
-    @staticmethod  
+    # region Query Helpers
+
+    @staticmethod
+    def get_all_files() -> List[Dict]:
+        """Get all files in the database"""
+        return db.table(FILES_TABLE).all()
+
+    @staticmethod
+    def get_all_runs() -> List[Dict]:
+        """Get all runs in the database"""
+        return db.table(RUNS_TABLE).all()
+
+    @staticmethod
     def get_file_by_location(location: str) -> Dict:
         """Get a single file by its location on disk"""
         logger.debug(f"Getting file by location: {location}")
-        
+
         return db.table(FILES_TABLE).get(Query().file_location == str(location))
 
     @staticmethod
@@ -132,9 +144,7 @@ class DBManager:
     @staticmethod
     def get_recent_runs(limit: int = 10) -> List[Dict]:
         """Get most recently modified runs"""
-        all_runs = sorted(db.table(RUNS_TABLE).all(), 
-                         key=lambda x: x.get('last_modified', ''),
-                         reverse=True)
+        all_runs = sorted(db.table(RUNS_TABLE).all(), key=lambda x: x.get("last_modified", ""), reverse=True)
         return all_runs[:limit]
 
     @staticmethod
@@ -142,9 +152,9 @@ class DBManager:
         """Get the run ID by its location on disk"""
         return db.table(RUNS_TABLE).get(Query().run_location == run_location)
 
-    #endregion
+    # endregion
 
-    #region Maintenance Utilities
+    # region Maintenance Utilities
     @staticmethod
     def vacuum():
         """Reclaim storage space by removing deleted documents"""
@@ -167,29 +177,27 @@ class DBManager:
         old_runs = runs_table.search(Query().created < cutoff)
         runs_table.remove(doc_ids=[doc.doc_id for doc in old_runs])
 
-    #endregion
+    # endregion
 
-    #region Statistics
+    # region Statistics
     @staticmethod
     def get_file_counts() -> Dict[str, int]:
         """Get summary statistics of stored files"""
         files_table = db.table(FILES_TABLE)
-        return {
-            'total_files': len(files_table),
-            'by_run': {run['id']: len(DBManager.get_files_by_run(run['id'])) 
-                      for run in db.table(RUNS_TABLE).all()}
-        }
+        return {"total_files": len(files_table), "by_run": {run["id"]: len(DBManager.get_files_by_run(run["id"])) for run in db.table(RUNS_TABLE).all()}}
 
     @staticmethod
     def get_db_size() -> int:
         """Get the database file size in bytes"""
         return DB_PATH.stat().st_size
-    #endregion
 
-    #region Advanced Operations
+    # endregion
+
+    # region Advanced Operations
     @staticmethod
     def transaction(func):
         """Decorator for transactional operations (TinyDB pseudo-transactions)"""
+
         def wrapper(*args, **kwargs):
             try:
                 db._storage.begin_transaction()
@@ -200,21 +208,27 @@ class DBManager:
                 db._storage.rollback_transaction()
                 logger.error(f"Transaction failed: {str(e)}")
                 raise
+
         return wrapper
 
     @staticmethod
     def export_to_json(output_path: Path):
         """Export entire database to JSON file"""
-        data = {
-            RUNS_TABLE: db.table(RUNS_TABLE).all(),
-            FILES_TABLE: db.table(FILES_TABLE).all()
-        }
+        data = {RUNS_TABLE: db.table(RUNS_TABLE).all(), FILES_TABLE: db.table(FILES_TABLE).all()}
         output_path.write_text(json.dumps(data, indent=2))
-    
+
     @staticmethod
     def import_from_json(input_path: Path):
         """Import data from JSON backup"""
         data = json.loads(input_path.read_text())
         DBManager.upsert_runs_batch(data.get(RUNS_TABLE, []))
         DBManager.upsert_files_batch(data.get(FILES_TABLE, []))
-    #endregion
+
+    # endregion
+
+
+def sync_local_and_remote_databases():
+    """Sync local and remote databases"""
+    # Get all local files
+    local_files = DBManager.get_all_files()
+    
