@@ -8,6 +8,9 @@ setup(
         "colorlog",
         "httpx",
         "devtools",
+        "polars",
+        "deltalake",
+        "fastexcel"
         "python-jose",
         "pyyaml",
         "tinydb",
