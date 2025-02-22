@@ -1,0 +1,42 @@
+[project]
+name = "depictio-cli"
+version = "0.0.3"
+description = "Depictio CLI to interact with the Depictio API"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+  "colorlog",
+  "httpx",
+  "devtools",
+  "polars",
+  "deltalake",
+  "fastexcel",
+  "python-jose",
+  "pyyaml",
+  "tinydb",
+  "typer",
+  "typeguard",
+  "depictio-models"
+]
+authors = [
+  { name = "Thomas Weber", email = "thomas.weber@embl.de" }
+]
+urls = { Homepage = "http://github.com/depictio/depictio-cli" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["depictio_cli*"]
+# If you have other packages (like configs) that you don't want to include, you can exclude them:
+exclude = ["configs*"]
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+exclude = "build/"
