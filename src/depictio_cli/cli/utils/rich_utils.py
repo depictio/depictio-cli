@@ -3,10 +3,8 @@ import sys
 from typing import Dict, List, Union
 from typeguard import typechecked
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich import print, print_json
-import typer
 
 console = Console()
 

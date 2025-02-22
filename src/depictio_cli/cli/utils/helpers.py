@@ -1,7 +1,9 @@
 from typing import Optional
 from typeguard import typechecked
 from depictio_cli.cli.utils.deltatables import client_aggregate_data
-from depictio_cli.cli.utils.rich_utils import rich_print_checked_statement, rich_print_section_separator
+from depictio_cli.cli.utils.rich_utils import (
+    rich_print_checked_statement,
+)
 from depictio_cli.cli.utils.scan import scan_files_for_data_collection
 from depictio_cli.logging import logger
 from depictio_models.models.cli import CLIConfig
@@ -26,11 +28,17 @@ def process_data_collection_helper(
         update_files (bool, optional): _description_. Defaults to False.
     """
     dc = next((dc for dc in wf.data_collections if str(dc.id) == dc_id), None)
+    if dc is None:
+        raise ValueError(f"Data collection with id {dc_id} not found.")
+
     print("\n")
-    rich_print_checked_statement(f"Processing Data Collection: {dc.data_collection_tag} - type {dc.config.type} - metatype {dc.config.metatype}", "info")   
-    # logger.info(f"Processing Data collection: {dc}")
+    rich_print_checked_statement(
+        f"Processing Data Collection: {dc.data_collection_tag} - type {dc.config.type} - metatype {dc.config.metatype}",
+        "info",
+    )
     logger.info(f"Processing Data collection: {dc.data_collection_tag}")
     logger.info(f"Mode: {mode}")
+
     if mode == "scan":
         result = scan_files_for_data_collection(
             workflow=wf,
@@ -46,7 +54,10 @@ def process_data_collection_helper(
             command_parameters=command_parameters,
         )
     if result["result"] == "success":
-        rich_print_checked_statement(f"Data Collection {dc.data_collection_tag} processed successfully", "success")
+        rich_print_checked_statement(
+            f"Data Collection {dc.data_collection_tag} processed successfully",
+            "success",
+        )
     else:
         rich_print_checked_statement(f"Error: {result['message']}", "error")
 
@@ -71,16 +82,26 @@ def process_workflow_helper(
         update_files (bool, optional): Update the files for the data collections.
     """
     logger.info(f"Processing Workflow: {workflow.name}")
-    rich_print_checked_statement(f"Processing Workflow: {workflow.workflow_tag}", "info")
+    rich_print_checked_statement(
+        f"Processing Workflow: {workflow.workflow_tag}", "info"
+    )
 
     for data_collection in workflow.data_collections:
         # Skip if a specific tag is provided and it doesn't match
-        if data_collection_tag and data_collection.data_collection_tag.lower() != data_collection_tag.lower():
-            logger.info(f"Skipping data collection: {data_collection.data_collection_tag}")
+        if (
+            data_collection_tag
+            and data_collection.data_collection_tag.lower()
+            != data_collection_tag.lower()
+        ):
+            logger.info(
+                f"Skipping data collection: {data_collection.data_collection_tag}"
+            )
             continue
 
         # Process the matching data collection
-        logger.info(f"Processing data collection: {data_collection.data_collection_tag}")
+        logger.info(
+            f"Processing data collection: {data_collection.data_collection_tag}"
+        )
         dc_id = str(data_collection.id)
         process_data_collection_helper(
             CLI_config=CLI_config,
@@ -119,12 +140,16 @@ def process_project_helper(
 
     if workflow_name:
         # Filter workflows if specific name requested
-        rich_print_checked_statement(f"Filtering workflows for name: {workflow_name}", "info")
+        rich_print_checked_statement(
+            f"Filtering workflows for name: {workflow_name}", "info"
+        )
         workflows = [wf for wf in workflows if wf.name == workflow_name]
 
         if not workflows:
             logger.error(f"No workflow found with name: {workflow_name}")
-            rich_print_checked_statement(f"No workflow found with name: {workflow_name}", "error")
+            rich_print_checked_statement(
+                f"No workflow found with name: {workflow_name}", "error"
+            )
 
     # Process selected workflows
     for workflow in workflows:
@@ -137,4 +162,6 @@ def process_project_helper(
             command_parameters=command_parameters,
             mode=mode,
         )
-        rich_print_checked_statement(f"Workflow {workflow.workflow_tag} processed successfully", "success")
+        rich_print_checked_statement(
+            f"Workflow {workflow.workflow_tag} processed successfully", "success"
+        )

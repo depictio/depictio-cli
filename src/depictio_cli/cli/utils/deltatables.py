@@ -1,6 +1,5 @@
-import collections
 from datetime import datetime
-import hashlib
+from typing import Dict, List, Union, cast
 import deltalake
 import polars as pl
 from pydantic import validate_call
@@ -13,13 +12,16 @@ from depictio_models.models.files import File
 from depictio_models.models.cli import CLIConfig
 from depictio_models.models.s3 import PolarsStorageOptions
 
-from depictio_cli.cli.utils.api_calls import api_get_files_by_dc_id, api_upsert_deltatable, generate_api_headers
+from depictio_cli.cli.utils.api_calls import (
+    api_get_files_by_dc_id,
+    api_upsert_deltatable,
+)
 from depictio_cli.cli.utils.s3 import turn_S3_config_into_polars_storage_options
 from depictio_cli.logging import logger
 
 
 @validate_call
-def fetch_file_data(dc_id: str, CLI_config: CLIConfig) -> list:
+def fetch_file_data(dc_id: str, CLI_config: CLIConfig) -> List[File]:
     """
     Call the API to list files for the given DataCollection.
 
@@ -46,8 +48,10 @@ def fetch_file_data(dc_id: str, CLI_config: CLIConfig) -> list:
         logger.error(error_msg)
         raise Exception(error_msg)
 
-    logger.info(f"Retrieved {len(files_data)} file(s) for Data Collection {dc_id}.")
-    return files_data
+    files = convert_to_file_objects(files_data)
+
+    logger.info(f"Retrieved {len(files)} file(s) for Data Collection {dc_id}.")
+    return files
 
 
 @validate_call
@@ -74,7 +78,9 @@ def convert_to_file_objects(files_data: list) -> list:
     return files
 
 
-def read_single_file_lazy(file_info: File, file_format: str, polars_kwargs: dict) -> pl.LazyFrame:
+def read_single_file_lazy(
+    file_info: File, file_format: str, polars_kwargs: dict
+) -> pl.LazyFrame:
     """
     Lazily scan a single file into a Polars LazyFrame according to the specified format.
 
@@ -203,18 +209,25 @@ def aggregate_lazy_dataframes(lazy_frames: list) -> pl.DataFrame:
     # Concatenate all lazy frames into one lazy frame.
     concatenated_lf = pl.concat(aligned_lfs)
     # Add an aggregation timestamp column lazily.
-    concatenated_lf = concatenated_lf.with_columns(pl.lit(datetime.now().strftime("%Y-%m-%d %H:%M:%S")).alias("aggregation_time"))
+    concatenated_lf = concatenated_lf.with_columns(
+        pl.lit(datetime.now().strftime("%Y-%m-%d %H:%M:%S")).alias("aggregation_time")
+    )
     # Materialize the lazy operations.
     try:
-        aggregated_df = concatenated_lf.collect()
+        aggregated_df = cast(pl.DataFrame, concatenated_lf.collect())
+        return aggregated_df
+
     except Exception as e:
         error_msg = f"Error collecting concatenated LazyFrame: {e}"
         logger.error(error_msg)
         raise Exception(error_msg)
-    return aggregated_df
 
 
-def write_delta_table(aggregated_df: pl.DataFrame, destination_file: str, storage_options: PolarsStorageOptions) -> dict:
+def write_delta_table(
+    aggregated_df: pl.DataFrame,
+    destination_file: str,
+    storage_options: PolarsStorageOptions,
+) -> dict:
     """
     Write the aggregated DataFrame as a Delta Lake table.
 
@@ -226,7 +239,9 @@ def write_delta_table(aggregated_df: pl.DataFrame, destination_file: str, storag
         Exception: If writing the Delta table fails.
     """
     try:
-        logger.debug(f"Writing aggregated DataFrame to Delta table at {destination_file}.")
+        logger.debug(
+            f"Writing aggregated DataFrame to Delta table at {destination_file}."
+        )
         logger.debug(f"Aggregated DataFrame schema: {aggregated_df.schema}")
         logger.debug(f"Aggregated DataFrame head: {aggregated_df.head(5)}")
         logger.debug(f"Storage options: {storage_options}")
@@ -239,7 +254,10 @@ def write_delta_table(aggregated_df: pl.DataFrame, destination_file: str, storag
 
         logger.info(f"Aggregated Delta table written to {destination_file}.")
 
-        return {"result": "success", "message": f"Aggregated Delta table written to {destination_file}."}
+        return {
+            "result": "success",
+            "message": f"Aggregated Delta table written to {destination_file}.",
+        }
     except Exception as e:
         error_msg = f"Error writing aggregated Delta table: {e}"
         logger.error(error_msg)
@@ -247,7 +265,9 @@ def write_delta_table(aggregated_df: pl.DataFrame, destination_file: str, storag
         return {"result": "error", "message": error_msg}
 
 
-def read_delta_table(destination_file: str, storage_options: PolarsStorageOptions) -> pl.DataFrame:
+def read_delta_table(
+    destination_file: str, storage_options: PolarsStorageOptions
+) -> Dict[str, Union[str, pl.DataFrame]]:
     """
     Read a Delta Lake table into a DataFrame.
 
@@ -261,9 +281,15 @@ def read_delta_table(destination_file: str, storage_options: PolarsStorageOption
         Exception: If reading the Delta table fails.
     """
     try:
-        df = pl.read_delta(destination_file, storage_options=storage_options.model_dump())
+        df = pl.read_delta(
+            destination_file, storage_options=storage_options.model_dump()
+        )
         logger.debug(f"Delta table read from {destination_file}.")
-        return {"result": "success", "message": f"Delta table read from {destination_file}.", "data": df}
+        return {
+            "result": "success",
+            "message": f"Delta table read from {destination_file}.",
+            "data": df,
+        }
     except Exception as e:
         error_msg = f"Error reading Delta table: {e}"
         logger.error(error_msg)
@@ -274,7 +300,7 @@ def client_aggregate_data(
     data_collection: DataCollection,
     CLI_config: CLIConfig,
     command_parameters: dict = {},
-) -> str:
+) -> Dict[str, str]:
     """
     Aggregate files from a DataCollection into a Delta Lake object.
 
@@ -302,7 +328,9 @@ def client_aggregate_data(
     else:
         overwrite = False
     # Generate destination prefix using the data collection id - should be a S3 path
-    destination_prefix = f"s3://{CLI_config.s3_storage.bucket}/{str(data_collection.id)}"
+    destination_prefix = (
+        f"s3://{CLI_config.s3_storage.bucket}/{str(data_collection.id)}"
+    )
     logger.debug(f"Destination prefix: {destination_prefix}")
 
     # Check if existing Delta table exists and is accessible
@@ -315,21 +343,31 @@ def client_aggregate_data(
 
     destination_exists = False
     try:
-        response_read_table = read_delta_table(destination_prefix, storage_options=storage_options)
+        response_read_table = read_delta_table(
+            destination_prefix, storage_options=storage_options
+        )
         existing_df = response_read_table["data"]
         destination_exists = True
         logger.debug("Existing Delta table found, using it as base")
+        assert type(existing_df) is pl.DataFrame
         logger.debug(f"Existing Delta table head: {existing_df.head(5)}")
-    except deltalake.exceptions.TableNotFoundError as e:
-        logger.debug("Destination prefix does not exist yet, will create it during processing")
+    except deltalake.exceptions.TableNotFoundError:
+        logger.debug(
+            "Destination prefix does not exist yet, will create it during processing"
+        )
         destination_exists = False
 
     # if destination_exists:
 
     if destination_exists and not overwrite:
         logger.debug("Destination already exists, overwrite mode is disabled")
-        rich_print_checked_statement("Destination already exists, overwrite mode is disabled", "info")
-        return {"result": "error", "message": f"Destination {destination_prefix} already exists and overwrite is disabled."}
+        rich_print_checked_statement(
+            "Destination already exists, overwrite mode is disabled", "info"
+        )
+        return {
+            "result": "error",
+            "message": f"Destination {destination_prefix} already exists and overwrite is disabled.",
+        }
 
     dc_id = data_collection.id
     data_collection_config = data_collection.config
@@ -337,15 +375,13 @@ def client_aggregate_data(
     logger.debug(f"Data Collection config: {data_collection_config}")
 
     # 1. Fetch file data from the server
-    files_data = fetch_file_data(str(dc_id), CLI_config)
-    logger.debug(f"Files data: {files_data}")
-
-    # 2. Validate file objects
-    files = convert_to_file_objects(files_data)
-    logger.debug(f"Files: {files}")
+    files = fetch_file_data(str(dc_id), CLI_config)
+    logger.debug(f"Files data: {files}")
 
     # 3. Read files using Polars
-    data_collection_config = convert_objectid_to_str(data_collection_config.model_dump())
+    data_collection_config = convert_objectid_to_str(
+        data_collection_config.model_dump()
+    )
     logger.debug(f"Data Collection config: {data_collection_config}")
     dc_props = data_collection_config.get("dc_specific_properties", {})
     file_format = dc_props.get("format", "csv").lower()
@@ -363,13 +399,24 @@ def client_aggregate_data(
         rich_print_checked_statement("Overwriting existing Delta table", "info")
         logger.info("Overwriting existing Delta table")
     else:
-        rich_print_checked_statement("Destination does not exist, will create it during processing", "info")
+        rich_print_checked_statement(
+            "Destination does not exist, will create it during processing", "info"
+        )
         logger.info("Destination does not exist, will create it during processing")
 
-    result = write_delta_table(aggregated_df=aggregated_df, destination_file=destination_prefix, storage_options=storage_options)
+    result = write_delta_table(
+        aggregated_df=aggregated_df,
+        destination_file=destination_prefix,
+        storage_options=storage_options,
+    )
 
     # 6. Upsert object in the remote DB
-    api_upsert_result = api_upsert_deltatable(data_collection_id=str(dc_id), CLI_config=CLI_config, delta_table_location=destination_prefix, update=overwrite)
+    api_upsert_result = api_upsert_deltatable(
+        data_collection_id=str(dc_id),
+        CLI_config=CLI_config,
+        delta_table_location=destination_prefix,
+        update=overwrite,
+    )
     if api_upsert_result.status_code != 200:
         error_msg = f"Error upserting Delta table metadata: {api_upsert_result.text}"
         logger.error(error_msg)
@@ -377,6 +424,10 @@ def client_aggregate_data(
     result = api_upsert_result.json()
 
     if result["result"] == "error":
+        assert type(result["message"]) is str
         return result
 
-    return {"result": "success", "message": f"Aggregated data successfully written to {destination_prefix}."}
+    return {
+        "result": "success",
+        "message": f"Aggregated data successfully written to {destination_prefix}.",
+    }

@@ -1,0 +1,20 @@
+repos:
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.9.7  # Use the latest stable version if available
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0  # Updated to the latest stable version
+    hooks:
+      - id: mypy
+        args: ["--install-types", "--non-interactive"]
+        additional_dependencies:
+          - 'pydantic>=2.0.0'
+          - 'bson'
+          - 'colorlog'
+          - 'pytest'
+          - 'types-PyYAML'
+          - 'types-bleach'

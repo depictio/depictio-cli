@@ -24,14 +24,19 @@ def api_login(yaml_config_path: str = "~/.depictio/agent.yaml") -> dict:
     logger.info(f"Depictio CLI configuration loaded: {depictio_CLI_config}")
 
     # Connect to depictio API
-    response = httpx.post(f"{depictio_CLI_config['api_base_url']}/depictio/api/v1/cli/validate_cli_config", json=depictio_CLI_config)
+    response = httpx.post(
+        f"{depictio_CLI_config['api_base_url']}/depictio/api/v1/cli/validate_cli_config",
+        json=depictio_CLI_config,
+    )
     if response.status_code == 200:
         logger.info("Depictio CLI configuration is valid.")
         rich_print_checked_statement("Depictio CLI configuration is valid.", "success")
         return {"success": True, "CLI_config": depictio_CLI_config}
     else:
         logger.error(f"Depictio CLI configuration is invalid: {response.text}")
-        rich_print_checked_statement(f"Depictio CLI configuration is invalid: {response.text}", "error")
+        rich_print_checked_statement(
+            f"Depictio CLI configuration is invalid: {response.text}", "error"
+        )
         return {"success": False}
 
 
@@ -41,7 +46,11 @@ def api_get_project_from_id(project_id: str, CLI_config: CLIConfig):
     Get a project from the server using the project ID.
     """
     # First check if the project exists on the server DB for existing IDs and if the same metadata hash is used
-    response = httpx.get(f"{CLI_config.api_base_url}/depictio/api/v1/projects/get/from_id", params={"project_id": project_id}, headers=generate_api_headers(CLI_config))
+    response = httpx.get(
+        f"{CLI_config.api_base_url}/depictio/api/v1/projects/get/from_id",
+        params={"project_id": project_id},
+        headers=generate_api_headers(CLI_config),
+    )
     return response
 
 
@@ -51,7 +60,11 @@ def api_get_project_from_name(project_name: str, CLI_config: CLIConfig):
     Get a project from the server using the project ID.
     """
     # First check if the project exists on the server DB for existing IDs and if the same metadata hash is used
-    response = httpx.get(f"{CLI_config.api_base_url}/depictio/api/v1/projects/get/from_name", params={"project_name": project_name}, headers=generate_api_headers(CLI_config))
+    response = httpx.get(
+        f"{CLI_config.api_base_url}/depictio/api/v1/projects/get/from_name",
+        params={"project_name": project_name},
+        headers=generate_api_headers(CLI_config),
+    )
     return response
 
 
@@ -62,7 +75,11 @@ def api_create_project(project_config: dict, CLI_config: CLIConfig):
     """
     logger.info("Creating project on server...")
 
-    response = httpx.post(f"{CLI_config.api_base_url}/depictio/api/v1/projects/create", json=project_config, headers=generate_api_headers(CLI_config))
+    response = httpx.post(
+        f"{CLI_config.api_base_url}/depictio/api/v1/projects/create",
+        json=project_config,
+        headers=generate_api_headers(CLI_config),
+    )
 
     return response
 
@@ -75,13 +92,19 @@ def api_update_project(project_config: dict, CLI_config: CLIConfig):
     logger.info("Updating project on server...")
     logger.debug(f"Project configuration: {project_config}")
 
-    response = httpx.put(f"{CLI_config.api_base_url}/depictio/api/v1/projects/update", json=project_config, headers=generate_api_headers(CLI_config))
+    response = httpx.put(
+        f"{CLI_config.api_base_url}/depictio/api/v1/projects/update",
+        json=project_config,
+        headers=generate_api_headers(CLI_config),
+    )
 
     return response
 
 
 @validate_call
-def api_sync_project_config_to_server(CLI_config: CLIConfig, ProjectConfig: dict, update: bool = False):
+def api_sync_project_config_to_server(
+    CLI_config: CLIConfig, ProjectConfig: dict, update: bool = False
+):
     """
     Sync the pipeline configuration to the server.
     """
@@ -102,25 +125,36 @@ def api_sync_project_config_to_server(CLI_config: CLIConfig, ProjectConfig: dict
 
         # If update flag is False, exit
         if not update:
-            logger.error("Project configuration already exists on server, use --update flag to update.")
-            rich_print_checked_statement("Project configuration already exists on server, use --update flag to update.", "error")
+            logger.error(
+                "Project configuration already exists on server, use --update flag to update."
+            )
+            rich_print_checked_statement(
+                "Project configuration already exists on server, use --update flag to update.",
+                "error",
+            )
             raise typer.Exit(code=0)
 
         # If update flag is True, update the project on the server
-        rich_print_checked_statement("--update flag set, updating project configuration on server...", "info")
+        rich_print_checked_statement(
+            "--update flag set, updating project configuration on server...", "info"
+        )
         logger.debug(f"Updating project configuration on server: {project_config}")
         response = api_update_project(project_config, CLI_config)
         if response.status_code == 200:
             rich_print_checked_statement("Project updated on server", "success")
             logger.info(f"Project updated on server: {response.json()}")
         else:
-            rich_print_checked_statement(f"Failed to update project on server: {response.text}", "error")
+            rich_print_checked_statement(
+                f"Failed to update project on server: {response.text}", "error"
+            )
             logger.error(f"Failed to update project on server: {response.text}")
             raise typer.Exit(code=1)
 
     elif response.status_code == 404:
         logger.info("Project configuration not found on server.")
-        rich_print_checked_statement("Project configuration not found on server, creating project...", "info")
+        rich_print_checked_statement(
+            "Project configuration not found on server, creating project...", "info"
+        )
         # Create the project on the server
         response = api_create_project(project_config, CLI_config)
         if response.status_code == 200:
@@ -128,12 +162,16 @@ def api_sync_project_config_to_server(CLI_config: CLIConfig, ProjectConfig: dict
             rich_print_checked_statement("Project created on server", "success")
         else:
             logger.error(f"Failed to create project on server: {response.text}")
-            rich_print_checked_statement(f"Failed to create project on server: {response.text}", "error")
+            rich_print_checked_statement(
+                f"Failed to create project on server: {response.text}", "error"
+            )
             raise typer.Exit(code=1)
 
 
 @validate_call
-def api_create_files(files: List[File], CLI_config: "CLIConfig", update: bool = False) -> httpx.Response:
+def api_create_files(
+    files: List[File], CLI_config: "CLIConfig", update: bool = False
+) -> httpx.Response:
     """
     Create or update files on the server using a bulk upsert.
 
@@ -172,7 +210,10 @@ def api_get_files_by_dc_id(dc_id: str, CLI_config: CLIConfig) -> httpx.Response:
     """
     logger.info(f"Getting files for data collection ID: {dc_id}")
 
-    response = httpx.get(f"{CLI_config.api_base_url}/depictio/api/v1/files/list/{dc_id}", headers=generate_api_headers(CLI_config))
+    response = httpx.get(
+        f"{CLI_config.api_base_url}/depictio/api/v1/files/list/{dc_id}",
+        headers=generate_api_headers(CLI_config),
+    )
     return response
 
 
@@ -204,7 +245,9 @@ class UpsertWorkflowRun(BaseModel):
 
 
 @validate_call
-def api_upsert_runs_batch(runs: List[WorkflowRun], CLI_config: CLIConfig, update: bool = False) -> httpx.Response:
+def api_upsert_runs_batch(
+    runs: List[WorkflowRun], CLI_config: CLIConfig, update: bool = False
+) -> httpx.Response:
     """
     Create or update runs on the server using a bulk upsert.
 
@@ -268,9 +311,6 @@ def api_delete_file(file_id: str, CLI_config: CLIConfig) -> httpx.Response:
     return response
 
 
-from depictio_models.models.deltatables import UpsertDeltaTableAggregated
-
-
 @validate_call
 def api_upsert_deltatable(
     data_collection_id: str,
@@ -290,7 +330,11 @@ def api_upsert_deltatable(
     """
     logger.info("Uploading Delta Table to the server...")
 
-    payload = {"data_collection_id": data_collection_id, "delta_table_location": delta_table_location, "update": update}
+    payload = {
+        "data_collection_id": data_collection_id,
+        "delta_table_location": delta_table_location,
+        "update": update,
+    }
 
     url = f"{CLI_config.api_base_url}/depictio/api/v1/deltatables/upsert"
 
@@ -298,6 +342,7 @@ def api_upsert_deltatable(
 
     response = httpx.post(url, json=payload, headers=generate_api_headers(CLI_config))
     return response
+
 
 @validate_call
 def api_get_deltatable_by_dc_id(dc_id: str, CLI_config: CLIConfig) -> httpx.Response:
@@ -313,8 +358,12 @@ def api_get_deltatable_by_dc_id(dc_id: str, CLI_config: CLIConfig) -> httpx.Resp
     """
     logger.info(f"Getting Delta Table for data collection ID: {dc_id}")
 
-    response = httpx.get(f"{CLI_config.api_base_url}/depictio/api/v1/deltatables/get/{dc_id}", headers=generate_api_headers(CLI_config))
+    response = httpx.get(
+        f"{CLI_config.api_base_url}/depictio/api/v1/deltatables/get/{dc_id}",
+        headers=generate_api_headers(CLI_config),
+    )
     return response
+
 
 @validate_call
 def api_delete_deltatable(delta_table_id: str, CLI_config: CLIConfig) -> httpx.Response:
@@ -330,6 +379,8 @@ def api_delete_deltatable(delta_table_id: str, CLI_config: CLIConfig) -> httpx.R
     """
     logger.info(f"Deleting Delta Table with ID: {delta_table_id}")
 
-    url = f"{CLI_config.api_base_url}/depictio/api/v1/deltatables/delete/{delta_table_id}"
+    url = (
+        f"{CLI_config.api_base_url}/depictio/api/v1/deltatables/delete/{delta_table_id}"
+    )
     response = httpx.delete(url, headers=generate_api_headers(CLI_config))
     return response

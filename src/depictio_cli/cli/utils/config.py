@@ -1,16 +1,17 @@
 import hashlib
 import json
-import os, yaml, typer
-from typeguard import typechecked
+import os
+from typing import Any, Dict, cast
+from pydantic import validate_call
+import typer
 
 # depictio-cli imports
 from depictio_cli.cli.utils.api_calls import api_get_project_from_name, api_login
-from depictio_cli.cli.utils.common import get_config
-from depictio_cli.cli.utils.metadata import load_metadata, update_metadata
 from depictio_cli.cli.utils.s3 import S3_storage_checks
 from depictio_cli.logging import logger
 
 # depictio-models imports
+from depictio_models.utils import get_config
 from depictio_models.models.cli import CLIConfig
 from depictio_models.utils import validate_model_config
 from depictio_models.models.projects import Project
@@ -38,8 +39,10 @@ KEYS_TO_SAVE = {
 }
 
 
-@typechecked
-def validate_project_config_and_check_S3_storage(CLI_config_path: str, project_config_path: str):
+@validate_call
+def validate_project_config_and_check_S3_storage(
+    CLI_config_path: str, project_config_path: str
+):
     """
     Validate the project configuration and check S3 storage.
     """
@@ -56,7 +59,9 @@ def validate_project_config_and_check_S3_storage(CLI_config_path: str, project_c
 
         CLI_config = CLIConfig(**CLI_config)
         # Validate the project configuration
-        response_validation = local_validate_project_config(CLI_config, project_config_path)
+        response_validation = local_validate_project_config(
+            CLI_config, project_config_path
+        )
         return CLI_config, response_validation
     else:
         raise typer.Exit(code=1)
@@ -87,10 +92,14 @@ def find_matching_entry(collection, new_item):
         if "name" in new_item and new_item["name"] == item.get("name"):
             return item
         # Check for match on 'workflow_tag'
-        if "workflow_tag" in new_item and new_item["workflow_tag"] == item.get("workflow_tag"):
+        if "workflow_tag" in new_item and new_item["workflow_tag"] == item.get(
+            "workflow_tag"
+        ):
             return item
         # Check for match on 'data_collection_tag'
-        if "data_collection_tag" in new_item and new_item["data_collection_tag"] == item.get("data_collection_tag"):
+        if "data_collection_tag" in new_item and new_item[
+            "data_collection_tag"
+        ] == item.get("data_collection_tag"):
             return item
     return None
 
@@ -105,7 +114,9 @@ def assign_ids_by_keys(existing_meta, new_structure):
     if isinstance(new_structure, dict):
         match = find_matching_entry(existing_meta, new_structure)
         if match and "id" in match:
-            logger.debug(f"Match found for {new_structure}: {match} ; ID: {match['id']}")
+            logger.debug(
+                f"Match found for {new_structure}: {match} ; ID: {match['id']}"
+            )
             new_structure["id"] = str(match["id"])
 
         # Recurse into nested dictionaries or lists
@@ -125,8 +136,10 @@ def assign_ids_by_keys(existing_meta, new_structure):
     return new_structure
 
 
-@typechecked
-def load_and_prepare_config(CLI_config: CLIConfig, project_yaml_config_path: str) -> dict:
+@validate_call
+def load_and_prepare_config(
+    CLI_config: CLIConfig, project_yaml_config_path: str
+) -> Dict[str, Any]:
     """
     Load the pipeline configuration, set the YAML config path, and add permissions.
     """
@@ -142,14 +155,18 @@ def load_and_prepare_config(CLI_config: CLIConfig, project_yaml_config_path: str
     user_light.token = None
     user_light = user_light.model_dump()
 
-    project_config["permissions"] = {"owners": [user_light], "editors": [], "viewers": []}
+    project_config["permissions"] = {
+        "owners": [user_light],
+        "editors": [],
+        "viewers": [],
+    }
     # project_config["permissions"] = {"owners": [user_light], "editors": [], "viewers": []}
 
     logger.debug(f"Pipeline config after adding permissions: {project_config}")
-    return project_config
+    return cast(Dict[str, Any], project_config)
 
 
-@typechecked
+@validate_call
 def merge_existing_ids(existing_entry: dict, project_config: dict) -> dict:
     """
     If a project with the same name exists, checks ownership and merges existing IDs.
@@ -164,11 +181,17 @@ def merge_existing_ids(existing_entry: dict, project_config: dict) -> dict:
     if existing_entry:
         logger.info(f"Project : {project_config}")
         user_id = project_config["permissions"]["owners"][0]["id"]
-        logger.info(f"Existing entry user ID: {existing_entry['permissions']['owners'][0]['id']}")
+        logger.info(
+            f"Existing entry user ID: {existing_entry['permissions']['owners'][0]['id']}"
+        )
         if existing_entry["permissions"]["owners"][0]["id"] != user_id:
-            raise ValueError(f"Project '{project_name}' exists but is owned by a different user.")
+            raise ValueError(
+                f"Project '{project_name}' exists but is owned by a different user."
+            )
 
-        logger.info(f"Project owner is the same for '{project_name}' - Owner ID: {user_id}")
+        logger.info(
+            f"Project owner is the same for '{project_name}' - Owner ID: {user_id}"
+        )
         logger.info(f"Project '{project_name}' exists with ID: {existing_entry['id']}")
         # Merge existing IDs using the provided function
         project_config = assign_ids_by_keys([existing_entry], project_config)
@@ -183,15 +206,24 @@ def extract_metadata(data, keys_structure):
     Recursively extract metadata based on a keys structure.
     """
     if isinstance(keys_structure, dict):
-        return {key: extract_metadata(data.get(key, {}), sub_keys) for key, sub_keys in keys_structure.items()}
+        return {
+            key: extract_metadata(data.get(key, {}), sub_keys)
+            for key, sub_keys in keys_structure.items()
+        }
     elif isinstance(keys_structure, list):
-        return [extract_metadata(item, keys_structure[0]) for item in data] if isinstance(data, list) else []
+        return (
+            [extract_metadata(item, keys_structure[0]) for item in data]
+            if isinstance(data, list)
+            else []
+        )
     else:
         return data
 
 
-@typechecked
-def create_metadata_entry(validated_config: Project, keys_to_save: dict) -> dict:
+@validate_call
+def create_metadata_entry(
+    validated_config: Project, keys_to_save: dict
+) -> Dict[str, Any]:
     """
     Convert validated configuration to a metadata entry, compute hash, and return the entry.
     """
@@ -200,14 +232,18 @@ def create_metadata_entry(validated_config: Project, keys_to_save: dict) -> dict
     metadata_entry = extract_metadata(config_dict, keys_to_save)
 
     # Compute hash for the metadata entry
-    hash_value = hashlib.md5(json.dumps(metadata_entry, sort_keys=True).encode()).hexdigest()
+    hash_value = hashlib.md5(
+        json.dumps(metadata_entry, sort_keys=True).encode()
+    ).hexdigest()
     metadata_entry["hash"] = hash_value
     logger.debug(f"Metadata entry: {metadata_entry}")
-    return metadata_entry
+    return cast(Dict[str, Any], metadata_entry)
 
 
-@typechecked
-def local_validate_project_config(CLI_config: CLIConfig, project_yaml_config_path: str) -> dict:
+@validate_call
+def local_validate_project_config(
+    CLI_config: CLIConfig, project_yaml_config_path: str
+) -> dict:
     """
     Validate the pipeline configuration locally and update the metadata.
     """
@@ -228,7 +264,9 @@ def local_validate_project_config(CLI_config: CLIConfig, project_yaml_config_pat
             remote_project = response.json()
             logger.info(f"Remote project : {remote_project}")
 
-            validated_config = merge_existing_ids(remote_project, convert_objectid_to_str(validated_config.to_json()))
+            validated_config = merge_existing_ids(
+                remote_project, convert_objectid_to_str(validated_config.to_json())
+            )
             validated_config = Project.from_mongo(validated_config)
 
         # else:
@@ -251,7 +289,11 @@ def local_validate_project_config(CLI_config: CLIConfig, project_yaml_config_pat
         # tmp_validated_config = Project.from_mongo(tmp_validated_config)
         # logger.info(f"from_mongo - Pipeline configuration with hash: {tmp_validated_config}")
 
-        return {"success": True, "config": validated_config, "project_config": validated_config}
+        return {
+            "success": True,
+            "config": validated_config,
+            "project_config": validated_config,
+        }
 
     except ValueError as e:
         logger.error(f"Pipeline configuration validation failed: {e}")

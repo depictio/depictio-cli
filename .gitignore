@@ -162,3 +162,15 @@ cython_debug/
 #.idea/
 depictio_cli.yaml
 admin_config.yaml
+uv.lock
+build/
+
+# Mypy cache
+.mypy_cache/
+.dmypy.json
+
+# Ruff cache (if generated)
+.ruff_cache/
+
+# act cache and temporary files
+.act/

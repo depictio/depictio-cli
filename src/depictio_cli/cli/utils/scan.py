@@ -1,22 +1,35 @@
 import collections
-from typing import List, Optional, Union
+from typing import Any, DefaultDict, Dict, List, Optional, Union, cast
 from bson import ObjectId
+from pydantic import validate_call
 from typeguard import typechecked
 import os
 import re
 import hashlib
 from datetime import datetime
 
-from depictio_cli.cli.utils.api_calls import api_create_files, api_delete_file, api_delete_run, api_get_files_by_dc_id, api_get_runs_by_wf_id, api_upsert_runs_batch
+from depictio_cli.cli.utils.api_calls import (
+    api_create_files,
+    api_delete_file,
+    api_delete_run,
+    api_get_files_by_dc_id,
+    api_get_runs_by_wf_id,
+    api_upsert_runs_batch,
+)
 from depictio_cli.cli.utils.common import format_timestamp
 from depictio_cli.cli.utils.rich_utils import rich_print_checked_statement
 from depictio_cli.logging import logger
 
-from depictio_models.models.base import PyObjectId
 from depictio_models.models.cli import CLIConfig
 from depictio_models.models.data_collections import DataCollection, Regex
 from depictio_models.models.users import Permission, UserBase
-from depictio_models.models.workflows import Workflow, WorkflowConfig, WorkflowDataLocation, WorkflowRun, WorkflowRunScan
+from depictio_models.models.workflows import (
+    Workflow,
+    WorkflowConfig,
+    WorkflowDataLocation,
+    WorkflowRun,
+    WorkflowRunScan,
+)
 from depictio_models.models.files import File, FileScanResult
 
 
@@ -46,7 +59,9 @@ def construct_full_regex(regex=Regex):
     return files_regex
 
 
-def generate_file_hash(filename: str, filesize: int, creation_time: str, modification_time: str) -> str:
+def generate_file_hash(
+    filename: str, filesize: int, creation_time: str, modification_time: str
+) -> str:
     """
     Generates a hash for the file based on its filename, size, creation time, and modification time.
 
@@ -60,16 +75,25 @@ def generate_file_hash(filename: str, filesize: int, creation_time: str, modific
     Returns:
         str: The hexadecimal digest of the hash.
     """
-    logger.debug(f"Generating hash for file {filename} with attributes {filesize}, {creation_time}, {modification_time}")
+    logger.debug(
+        f"Generating hash for file {filename} with attributes {filesize}, {creation_time}, {modification_time}"
+    )
     # Concatenate the attributes into a single string
-    hash_input = f"{filename}{filesize}{creation_time}{modification_time}".encode("utf-8")
+    hash_input = f"{filename}{filesize}{creation_time}{modification_time}".encode(
+        "utf-8"
+    )
     # Generate the hash using SHA-256
     file_hash = hashlib.sha256(hash_input).hexdigest()
 
     return file_hash
 
 
-def generate_run_hash(run_location: str, creation_time: str, last_modification_time: str, files: List[File]) -> str:
+def generate_run_hash(
+    run_location: str,
+    creation_time: str,
+    last_modification_time: str,
+    files: List[File],
+) -> str:
     """
     Generates a hash for the run based on its location, creation time, and last modification time, and the files it contains.
 
@@ -89,7 +113,11 @@ def generate_run_hash(run_location: str, creation_time: str, last_modification_t
     files_hash = hashlib.sha256(file_hashes_str.encode("utf-8")).hexdigest()
 
     # Concatenate the attributes into a single string
-    hash_input = f"{run_location}{creation_time}{last_modification_time}{files_hash}".encode("utf-8")
+    hash_input = (
+        f"{run_location}{creation_time}{last_modification_time}{files_hash}".encode(
+            "utf-8"
+        )
+    )
 
     # Generate the hash using SHA-256
     run_hash = hashlib.sha256(hash_input).hexdigest()
@@ -97,7 +125,13 @@ def generate_run_hash(run_location: str, creation_time: str, last_modification_t
     return run_hash
 
 
-def check_run_differences(previous_run_entry: WorkflowRun, run_location: str, creation_time: str, last_modification_time: str, files: List[File]) -> dict:
+def check_run_differences(
+    previous_run_entry: WorkflowRun,
+    run_location: str,
+    creation_time: str,
+    last_modification_time: str,
+    files: List[File],
+) -> dict:
     """_summary_
 
     Args:
@@ -111,28 +145,42 @@ def check_run_differences(previous_run_entry: WorkflowRun, run_location: str, cr
         list: _description_
     """
     # Check if the run hash has changed
-    run_hash = generate_run_hash(run_location, creation_time, last_modification_time, files)
+    run_hash = generate_run_hash(
+        run_location, creation_time, last_modification_time, files
+    )
     if previous_run_entry.run_hash != run_hash:
-        differences = collections.defaultdict(dict)
+        differences: DefaultDict[Any, Dict[Any, Any]] = collections.defaultdict(dict)
         logger.warning(f"Hash mismatch for run {run_location}.")
         # Deconvolute the hash to identify what changed
         # Check what changed
         if run_location != previous_run_entry.run_location:
             logger.warning(f"Run location changed for run {run_location}.")
-            differences["run_location"] = {"previous": previous_run_entry.run_location, "current": run_location}
+            differences["run_location"] = {
+                "previous": previous_run_entry.run_location,
+                "current": run_location,
+            }
 
         if creation_time != previous_run_entry.creation_time:
             logger.warning(f"Creation time changed for run {run_location}.")
-            differences["creation_time"] = {"previous": previous_run_entry.creation_time, "current": creation_time}
+            differences["creation_time"] = {
+                "previous": previous_run_entry.creation_time,
+                "current": creation_time,
+            }
 
         if last_modification_time != previous_run_entry.last_modification_time:
             logger.warning(f"Last modification time changed for run {run_location}.")
-            differences["last_modification_time"] = {"previous": previous_run_entry.last_modification_time, "current": last_modification_time}
+            differences["last_modification_time"] = {
+                "previous": previous_run_entry.last_modification_time,
+                "current": last_modification_time,
+            }
 
         # if differences is empty, then files have changed
         if not differences:
             logger.warning(f"Files changed for run {run_location}.")
-            differences["files"] = {"previous": previous_run_entry.files_id, "current": [file.id for file in files]}
+            differences["files"] = {
+                "previous": previous_run_entry.files_id,
+                "current": [file.id for file in files],
+            }
 
         return differences
     return {}
@@ -143,9 +191,9 @@ def scan_single_file(
     run_id: str,
     data_collection: "DataCollection",
     permissions: Permission,
-    existing_files: List[dict],
+    existing_files: Dict[str, dict],
     update_files: bool,
-    full_regex: str,
+    full_regex: Union[str, None] = None,
     skip_regex: bool = False,
 ) -> Optional[FileScanResult]:
     """
@@ -184,7 +232,9 @@ def scan_single_file(
     creation_time_iso = format_timestamp(creation_time_float)
     modification_time_iso = format_timestamp(modification_time_float)
     filesize = os.path.getsize(file_location)
-    file_hash = generate_file_hash(file_name, filesize, creation_time_iso, modification_time_iso)
+    file_hash = generate_file_hash(
+        file_name, filesize, creation_time_iso, modification_time_iso
+    )
     logger.debug(f"File Hash for {file_name}: {file_hash}")
 
     scan_result = None
@@ -200,9 +250,13 @@ def scan_single_file(
             existing_file = existing_files[file_location]
 
             if existing_file["file_hash"] == file_hash:
-                logger.debug(f"File {file_name} has not changed based on hash since last scan.")
+                logger.debug(
+                    f"File {file_name} has not changed based on hash since last scan."
+                )
             else:
-                logger.debug(f"File {file_name} has changed based on hash since last scan.")
+                logger.debug(
+                    f"File {file_name} has changed based on hash since last scan."
+                )
 
             file_id = existing_files[file_location]["_id"]
             if not update_files:
@@ -232,16 +286,21 @@ def scan_single_file(
 
     logger.debug(f"Scan Result: {scan_result}")
 
-    file_scan_result = FileScanResult(file=file_instance, scan_result=scan_result, scan_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    file_scan_result = FileScanResult(
+        file=file_instance,
+        scan_result=scan_result,
+        scan_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    )
     logger.debug(f"File Scan Result: {file_scan_result}")
     return file_scan_result
+
 
 def process_files(
     path: str,
     run_id: str,
     data_collection: "DataCollection",
     permissions: Permission,
-    existing_files: List[dict],
+    existing_files: Dict[str, dict],
     update_files: bool = False,
     skip_regex: bool = False,
 ) -> List[FileScanResult]:
@@ -273,7 +332,11 @@ def process_files(
     full_regex = None
     if not skip_regex:
         regex_config = data_collection.config.scan.scan_parameters.regex_config
-        full_regex = construct_full_regex(regex=regex_config) if getattr(regex_config, "wildcards", False) else regex_config.pattern
+        full_regex = (
+            construct_full_regex(regex=regex_config)
+            if getattr(regex_config, "wildcards", False)
+            else regex_config.pattern
+        )
         logger.debug(f"Full Regex: {full_regex}")
 
     if os.path.isdir(path):
@@ -312,8 +375,6 @@ def process_files(
         raise ValueError(f"Path '{path}' is neither a file nor a directory.")
 
     return file_list
-
-
 
 
 @typechecked
@@ -363,7 +424,7 @@ def scan_run(
 
         else:
             logger.info(f"Skipping existing run {run_tag}.")
-            return  # or you could choose to return None
+            return None
     else:
         workflow_run = WorkflowRun(
             workflow_id=workflow_id,
@@ -388,27 +449,60 @@ def scan_run(
     )
 
     logger.debug(f"File Scan Results: {file_scan_results}")
-    old_updated_files = [sc.file.id for sc in file_scan_results if sc.scan_result["result"] == "success" and sc.scan_result["reason"] == "updated"]
+    old_updated_files = [
+        sc.file.id
+        for sc in file_scan_results
+        if sc.scan_result["result"] == "success"
+        and sc.scan_result["reason"] == "updated"
+    ]
     # old_updated_files = [file for file in files if str(file.file_location) in existing_files_reformated]
 
-    new_files = [sc.file.id for sc in file_scan_results if sc.scan_result["result"] == "success" and sc.scan_result["reason"] == "added"]
+    new_files = [
+        sc.file.id
+        for sc in file_scan_results
+        if sc.scan_result["result"] == "success" and sc.scan_result["reason"] == "added"
+    ]
     # new_files = [file for file in files if str(file.file_location) not in existing_files_reformated]
 
-    files_skipped = [sc.file.id for sc in file_scan_results if sc.scan_result["result"] == "failure" and sc.scan_result["reason"] == "skipped"]
+    files_skipped = [
+        sc.file.id
+        for sc in file_scan_results
+        if sc.scan_result["result"] == "failure"
+        and sc.scan_result["reason"] == "skipped"
+    ]
 
-    missing_files_location = set(existing_files_reformated.keys()) - set([str(sc.file.file_location) for sc in file_scan_results])
+    missing_files_location = set(existing_files_reformated.keys()) - set(
+        [str(sc.file.file_location) for sc in file_scan_results]
+    )
     logger.debug(f"Existing Files: {(existing_files_reformated.keys())}")
-    logger.debug(f"Scanned Files: {[str(sc.file.file_location) for sc in file_scan_results]}")
+    logger.debug(
+        f"Scanned Files: {[str(sc.file.file_location) for sc in file_scan_results]}"
+    )
     logger.debug(f"Missing Files Location: {missing_files_location}")
 
-    missing_files = [existing_files_reformated[file_location]["_id"] for file_location in missing_files_location]
+    missing_files = [
+        existing_files_reformated[file_location]["_id"]
+        for file_location in missing_files_location
+    ]
 
-    files_other_failure = [sc.file.id for sc in file_scan_results if sc.scan_result["result"] == "failure" and sc.scan_result["reason"] != "skipped"]
+    files_other_failure = [
+        sc.file.id
+        for sc in file_scan_results
+        if sc.scan_result["result"] == "failure"
+        and sc.scan_result["reason"] != "skipped"
+    ]
 
     if not update_files:
-        files = [sc.file for sc in file_scan_results if sc.scan_result["result"] == "success" and sc.scan_result["reason"] == "added"]
+        files = [
+            sc.file
+            for sc in file_scan_results
+            if sc.scan_result["result"] == "success"
+            and sc.scan_result["reason"] == "added"
+        ]
     else:
-        files = [sc.file for sc in file_scan_results if sc.scan_result["result"] == "success"]
+        files = [
+            sc.file for sc in file_scan_results if sc.scan_result["result"] == "success"
+        ]
 
     stats = {
         "total_files": len(file_scan_results),
@@ -419,7 +513,12 @@ def scan_run(
         "skipped_files": len(files_skipped),
         "other_failure_files": len(files_other_failure),
     }
-    scan_results_files_id = {"updated_files": old_updated_files, "new_files": new_files, "skipped_files": files_skipped, "other_failure_files": files_other_failure}
+    scan_results_files_id = {
+        "updated_files": old_updated_files,
+        "new_files": new_files,
+        "skipped_files": files_skipped,
+        "other_failure_files": files_other_failure,
+    }
 
     # Upsert the files into the database
     if files:
@@ -433,20 +532,30 @@ def scan_run(
     # rich_print_checked_statement(f"No files found to add in the DB in run {run_tag}.", "warning")
 
     workflow_run.files_id = [file.id for file in files]
-    workflow_run.scan_results.append(WorkflowRunScan(stats=stats, files_id=scan_results_files_id, scan_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    workflow_run.scan_results.append(
+        WorkflowRunScan(
+            stats=stats,
+            files_id=scan_results_files_id,
+            scan_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        )
+    )
 
     if not update_files and existing_run:
         files = [File.from_mongo(v) for k, v in existing_files_reformated.items()]
 
     # Generate the hash for the run
-    run_hash = generate_run_hash(run_location, creation_time, last_modification_time, files)
+    run_hash = generate_run_hash(
+        run_location, creation_time, last_modification_time, files
+    )
     logger.debug(f"Run hash: {run_hash}")
 
     if workflow_run.run_hash:
         logger.debug(f"Existing run hash: {workflow_run.run_hash}")
 
         if rescan_folders or workflow_run.run_hash != run_hash:
-            differences = check_run_differences(workflow_run, run_location, creation_time, last_modification_time, files)
+            differences = check_run_differences(
+                workflow_run, run_location, creation_time, last_modification_time, files
+            )
             logger.debug(f"Differences: {differences}")
 
         if not rescan_folders and workflow_run.run_hash != run_hash:
@@ -505,10 +614,12 @@ def scan_parent_folder(
         raise ValueError(f"'{parent_runs_location}' is not a directory.")
 
     # Pre-allocation of existing runs
-    existing_runs_reformated = {}
-    existing_files_reformated_run = {}
+    existing_runs_reformated: Dict[str, dict] = {}
+    existing_files_reformated_run: Dict[str, dict] = {}
 
-    existing_runs_response = api_get_runs_by_wf_id(wf_id=str(workflow_id), CLI_config=CLI_config)
+    existing_runs_response = api_get_runs_by_wf_id(
+        wf_id=str(workflow_id), CLI_config=CLI_config
+    )
     logger.info(f"Existing Runs Response: {existing_runs_response}")
     if existing_runs_response.status_code == 200:
         existing_runs = existing_runs_response.json()
@@ -524,7 +635,7 @@ def scan_parent_folder(
             logger.debug(f"Run {run_tag} already exists in the database.")
             if not rescan_folders:
                 logger.debug(f"Skipping existing run {run_tag}.")
-                return
+                return []
         workflow_run = scan_run(
             run_location=parent_runs_location,
             run_tag=run_tag,
@@ -535,12 +646,16 @@ def scan_parent_folder(
             permissions=permissions,
             rescan_folders=rescan_folders,
             update_files=update_files,
+            existing_files_reformated=existing_files_reformated_run,
+            existing_run=existing_runs_reformated.get(run_tag, None),
         )
         runs.append(workflow_run)
     elif structure == "sequencing-runs":
         # Each subdirectory that matches the regex is a run
         for run in sorted(os.listdir(parent_runs_location)):
-            logger.debug(f"Scanning run: {run} - Existing Runs: {existing_runs_reformated}")
+            logger.debug(
+                f"Scanning run: {run} - Existing Runs: {existing_runs_reformated}"
+            )
             if run in existing_runs_reformated:
                 logger.debug(f"Run {run} already exists in the database.")
                 logger.debug(f"Existing Run: {existing_runs_reformated[run]}")
@@ -550,18 +665,16 @@ def scan_parent_folder(
             run_path = os.path.join(parent_runs_location, run)
             if os.path.isdir(run_path) and re.match(data_location.runs_regex, run):
                 existing_run = existing_runs_reformated.get(run, None)
-                if existing_run:
-                    logger.debug(f"Existing Run: {existing_run}")
-                    existing_run = WorkflowRun.from_mongo(existing_run)
-                    if existing_files_reformated:
-                        logger.debug(f"Existing Files: {existing_files_reformated}")
-                        logger.debug(f"Existing Files: {existing_files_reformated.keys()}")
-                        logger.debug(f"Existing run: {existing_run}")
-
-                        existing_files_reformated_run = {k: v for k, v in existing_files_reformated.items() if str(v["run_id"]) == str(existing_run.id)}
-                        logger.debug(f"Existing Files: {existing_files_reformated_run}")
-                    else:
-                        existing_files_reformated_run = {}
+                if existing_run is not None:
+                    # Optionally cast to WorkflowRun if needed:
+                    non_null_run = cast(WorkflowRun, existing_run)
+                    existing_files_reformated_run = {
+                        k: v
+                        for k, v in existing_files_reformated.items()
+                        if str(v["run_id"]) == str(non_null_run.id)
+                    }
+                else:
+                    existing_files_reformated_run = {}
 
                 workflow_run = scan_run(
                     run_location=run_path,
@@ -577,8 +690,12 @@ def scan_parent_folder(
                     update_files=update_files,
                 )
                 runs.append(workflow_run)
-        missing_runs_tag = set(existing_runs_reformated.keys()) - set([run.run_tag for run in runs])
-        missing_runs = [existing_runs_reformated[run_tag]["_id"] for run_tag in missing_runs_tag]
+        missing_runs_tag = set(existing_runs_reformated.keys()) - set(
+            [run.run_tag for run in runs if run]
+        )
+        missing_runs = [
+            existing_runs_reformated[run_tag]["_id"] for run_tag in missing_runs_tag
+        ]
 
         if rescan_folders:
             if missing_runs:
@@ -589,11 +706,16 @@ def scan_parent_folder(
                     for file in existing_files_reformated.values():
                         if file["run_id"] == run_id:
                             api_delete_file(file_id=file["_id"], CLI_config=CLI_config)
-                rich_print_checked_statement(f"Removed {len(missing_runs)} runs and related files from the DB : {missing_runs_tag}", "info")
+                rich_print_checked_statement(
+                    f"Removed {len(missing_runs)} runs and related files from the DB : {missing_runs_tag}",
+                    "info",
+                )
             # else:
             #     rich_print_checked_statement("No runs found to remove in the DB.", "warning")
     else:
-        raise ValueError(f"Unknown structure '{structure}'. Valid options are 'sequencing-runs' and 'direct-folder'.")
+        raise ValueError(
+            f"Unknown structure '{structure}'. Valid options are 'sequencing-runs' and 'direct-folder'."
+        )
 
     return runs
 
@@ -617,11 +739,12 @@ def rich_print_summary_scan_table(runs: List[WorkflowRun]) -> None:
     table.add_column("Skipped", justify="center")
     table.add_column("Other", justify="center")
 
-
     # Assuming you have a variable (e.g., run.scan_results) with all WorkflowRunScan objects
     for run in runs:
         scan_results = run.scan_results[-1]  # get the last scan results
-        stats = scan_results.stats  # the stats dict, e.g. {'total_files': 3, 'updated_files': 0, ...}
+        stats = (
+            scan_results.stats
+        )  # the stats dict, e.g. {'total_files': 3, 'updated_files': 0, ...}
         table.add_row(
             run.run_tag,
             str(stats.get("total_files", "")),
@@ -637,7 +760,7 @@ def rich_print_summary_scan_table(runs: List[WorkflowRun]) -> None:
     console.print(table)
 
 
-@typechecked
+@validate_call
 def scan_files_for_data_collection(
     workflow: Workflow,
     data_collection_id: str,
@@ -650,11 +773,9 @@ def scan_files_for_data_collection(
     Args:
         workflow (Workflow): The workflow configuration object.
         data_collection_id (str): The ID of the data collection to scan.
-        data_collection_metatype (str): The metatype of the data collection.
-        rescan_folders (bool): Whether to reprocess the runs (default is False).
-        update_files (bool): Whether to update the files (default is False).
+        CLI_config (CLIConfig): CLI configuration containing API URL and credentials.
+        command_parameters (dict): Command parameters, e.g. rescan_folders, sync_files.
     """
-
     # Parse the command parameters
     rescan_folders = command_parameters.get("rescan_folders", False)
     update_files = command_parameters.get("sync_files", False)
@@ -663,7 +784,6 @@ def scan_files_for_data_collection(
 
     # Generate permissions for the files
     user_base = CLI_config.user.model_dump()
-    # drop token key
     user_base.pop("token")
     user_base = UserBase.from_mongo(user_base)
     logger.debug(f"User: {user_base}")
@@ -671,25 +791,46 @@ def scan_files_for_data_collection(
     logger.debug(f"Permissions: {permissions}")
 
     # Retrieve workflow and data collection details
-    logger.debug("Fetching workflow and data collection details from local configurations...")
-
-    data_collection = next((dc for dc in workflow.data_collections if str(dc.id) == data_collection_id), None)
-    if not data_collection:
-        logger.error(f"Data collection {data_collection_id} not found in workflow {workflow.workflow_tag}.")
-        rich_print_checked_statement(f"Data collection {data_collection_id} not found in workflow {workflow.workflow_tag}.", "error")
+    logger.debug(
+        "Fetching workflow and data collection details from local configurations..."
+    )
+    data_collection = next(
+        (dc for dc in workflow.data_collections if str(dc.id) == data_collection_id),
+        None,
+    )
+    if data_collection is None:
+        error_msg = (
+            f"Data collection {data_collection_id} not found in workflow "
+            f"{workflow.workflow_tag}."
+        )
+        logger.error(error_msg)
+        rich_print_checked_statement(error_msg, "error")
+        raise ValueError(error_msg)  # Abort execution if data_collection is not found
 
     # Retrieve locations from the workflow config
     locations = workflow.data_location.locations
 
     # Check for the file's existence in the DB
-    response = api_get_files_by_dc_id(dc_id=str(data_collection.id), CLI_config=CLI_config)
+    response = api_get_files_by_dc_id(
+        dc_id=str(data_collection.id), CLI_config=CLI_config
+    )
     if response.status_code == 200:
         existing_files = response.json()
+        existing_files = [File.from_mongo(f) for f in existing_files]
+        logger.debug(f"Existing Files: {existing_files}")
     else:
         existing_files = None
-        # rich_print_checked_statement(f"No files found for data collection {data_collection.data_collection_tag}.", "warning")
 
-    existing_files_reformated = {existing_file["file_location"]: existing_file for existing_file in existing_files} if existing_files else {}
+    # Convert existing_files from a dict to a list of file dictionaries if needed.
+    existing_files_reformated = (
+        {
+            existing_file["file_location"]: existing_file
+            for existing_file in existing_files
+        }
+        if existing_files
+        else {}
+    )
+
     logger.debug(f"Existing Files list: {existing_files_reformated}")
 
     # For a single-file scan (e.g. metadata), use the provided filename.
@@ -697,14 +838,19 @@ def scan_files_for_data_collection(
         file_path = data_collection.config.scan.scan_parameters.filename
         logger.debug(f"File {file_path} already exists in the database.")
 
-        assert len(existing_files_reformated) <= 1, f"Multiple files found for data collection {data_collection.data_collection_tag} with file location {file_path}"
+        assert len(existing_files_reformated) <= 1, (
+            f"Multiple files found for data collection {data_collection.data_collection_tag} with file location {file_path}"
+        )
 
-        # For single file mode we bypass regex matching.
+        # Use a fixed default run_id (or generate one as needed)
+        run_id: str = "fixed-run-id"
+
+        # For single file mode, bypass regex matching.
         scan_file_result = process_files(
             path=file_path,
-            run_id=None,  # Use a fixed run id or generate one as appropriate
+            run_id=run_id,
             data_collection=data_collection,
-            existing_files=existing_files_reformated,  # Optionally load existing file records if needed
+            existing_files=existing_files_reformated,
             permissions=permissions,
             update_files=update_files,
             skip_regex=True,
@@ -714,9 +860,18 @@ def scan_files_for_data_collection(
 
         if scan_file_result:
             if not update_files:
-                files = [sc.file for sc in scan_file_result if sc.scan_result["result"] == "success" and sc.scan_result["reason"] == "added"]
+                files = [
+                    sc.file
+                    for sc in scan_file_result
+                    if sc.scan_result["result"] == "success"
+                    and sc.scan_result["reason"] == "added"
+                ]
             else:
-                files = [sc.file for sc in scan_file_result if sc.scan_result["result"] == "success"]
+                files = [
+                    sc.file
+                    for sc in scan_file_result
+                    if sc.scan_result["result"] == "success"
+                ]
         else:
             files = []
 
@@ -724,15 +879,19 @@ def scan_files_for_data_collection(
 
         if files:
             api_create_files(files=files, CLI_config=CLI_config, update=update_files)
-        # else:
-        #     rich_print_checked_statement(f"No files found to add in the DB for data collection {data_collection.data_collection_tag}.", "warning")
-        rich_print_checked_statement(f"Scanned {len(files)} file(s) for data collection {data_collection.data_collection_tag}", "info")
+        rich_print_checked_statement(
+            f"Scanned {len(files)} file(s) for data collection {data_collection.data_collection_tag}",
+            "info",
+        )
         return
     else:
         # For aggregate mode, use the existing parent folder scanning.
         locations = workflow.data_location.locations
         if not locations:
-            rich_print_checked_statement(f"No locations configured for workflow {workflow.workflow_tag}.", "warning")
+            rich_print_checked_statement(
+                f"No locations configured for workflow {workflow.workflow_tag}.",
+                "warning",
+            )
             return
 
         runs_stats = []
@@ -756,4 +915,7 @@ def scan_files_for_data_collection(
                 api_upsert_runs_batch(runs_and_content, CLI_config, rescan_folders)
                 runs_stats.extend(runs_and_content)
             rich_print_summary_scan_table(runs_stats)
-            rich_print_checked_statement(f"Scanned {len(runs_and_content)} runs in location {location}", "success")
+            rich_print_checked_statement(
+                f"Scanned {len(runs_and_content)} runs in location {location}",
+                "success",
+            )

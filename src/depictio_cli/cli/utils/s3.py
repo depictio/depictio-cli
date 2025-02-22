@@ -31,17 +31,26 @@ class S3ProviderBase(ABC):
         if not self.check_s3_accessibility():
             suggestions.append("Verify the endpoint URL, access key, and secret key.")
         if not self.check_bucket_accessibility():
-            suggestions.append(f"Ensure the bucket '{self.bucket_name}' exists and is accessible.")
+            suggestions.append(
+                f"Ensure the bucket '{self.bucket_name}' exists and is accessible."
+            )
         if not self.check_write_policy():
-            suggestions.append("Adjust bucket policies to allow write access for this client.")
+            suggestions.append(
+                "Adjust bucket policies to allow write access for this client."
+            )
 
         if suggestions:
-            rich_print_checked_statement("S3 storage is not correctly configured, use --verbose for more details.", "error")
+            rich_print_checked_statement(
+                "S3 storage is not correctly configured, use --verbose for more details.",
+                "error",
+            )
             logger.error("Suggested Adjustments:")
             for suggestion in suggestions:
                 logger.error(f"- {suggestion}")
         else:
-            rich_print_checked_statement("S3 storage is correctly configured.", "success")
+            rich_print_checked_statement(
+                "S3 storage is correctly configured.", "success"
+            )
             logger.info("No adjustments needed.")
 
 
@@ -52,7 +61,12 @@ class MinIOManager(S3ProviderBase):
         self.endpoint_url = f"{config.endpoint}:{config.port}"
         self.access_key = config.minio_root_user
         self.secret_key = config.minio_root_password
-        self.s3_client = boto3.client("s3", endpoint_url=self.endpoint_url, aws_access_key_id=self.access_key, aws_secret_access_key=self.secret_key)
+        self.s3_client = boto3.client(
+            "s3",
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key,
+        )
 
     def check_s3_accessibility(self):
         try:
@@ -68,17 +82,25 @@ class MinIOManager(S3ProviderBase):
 
     def check_bucket_accessibility(self):
         try:
-            response = self.s3_client.head_bucket(Bucket=self.bucket_name)
+            self.s3_client.head_bucket(Bucket=self.bucket_name)
             logger.info(f"Bucket '{self.bucket_name}' is accessible.")
             return True
         except ClientError as e:
-            logger.error(f"Bucket '{self.bucket_name}' is not accessible: {e.response['Error']['Message']}")
+            error_code = e.response["Error"]["Code"]
+            if error_code == "404":
+                logger.error(f"Bucket '{self.bucket_name}' does not exist.")
+            else:
+                logger.error(
+                    f"Bucket '{self.bucket_name}' is not accessible: {e.response['Error']['Message']}"
+                )
             return False
 
     def check_write_policy(self):
         try:
             test_key = ".depictio/"
-            self.s3_client.put_object(Bucket=self.bucket_name, Key=test_key, Body="test")
+            self.s3_client.put_object(
+                Bucket=self.bucket_name, Key=test_key, Body="test"
+            )
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=test_key)
             logger.info("Write policy is correctly configured.")
             return True
