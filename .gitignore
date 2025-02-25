@@ -174,3 +174,5 @@ build/
 
 # act cache and temporary files
 .act/
+.aider*
+.DS_Store
