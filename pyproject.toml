@@ -3,20 +3,16 @@ name = "depictio-cli"
 version = "0.0.3"
 description = "Depictio CLI to interact with the Depictio API"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
   "colorlog",
   "httpx",
-  "devtools",
   "polars",
   "deltalake",
   "fastexcel",
-  "python-jose",
   "pyyaml",
-  "tinydb",
   "typer",
-  "typeguard",
-  "depictio-models"
+  "depictio-models @ git+https://github.com/depictio/depictio-models.git"
 ]
 authors = [
   { name = "Thomas Weber", email = "thomas.weber@embl.de" }
@@ -27,6 +23,11 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent"
 ]
+
+[project.scripts]
+depictio-cli = "depictio_cli.depictio_cli:app"
+
+
 
 [tool.setuptools.packages.find]
 where = ["src"]
