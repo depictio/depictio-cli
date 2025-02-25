@@ -27,7 +27,7 @@ def scan(
         ),
     ] = "",
     workflow_name: Annotated[
-        Optional[str],  # Now explicitly Optional
+        Optional[str],
         typer.Option("--workflow-name", help="Name of the workflow to be scanned"),
     ] = None,
     data_collection_tag: Annotated[
@@ -43,14 +43,6 @@ def scan(
 ):
     """
     Scan files.
-
-    Args:
-        CLI_config_path (Annotated[str, typer.Option, optional): _description_. Defaults to "Path to the CLI configuration file")]="~/.depictio/CLI.yaml".
-        project_config_path (Annotated[str, typer.Option, optional): _description_. Defaults to "Path to the pipeline configuration file")]="".
-        workflow_name (Annotated[str, typer.Option, optional): _description_. Defaults to "Name of the workflow to be scanned")]="",
-        data_collection_tag (Optional[str], optional): _description_. Defaults to typer.Option(None, "--data-collection-tag", help="Data collection tag to be scanned").
-        rescan_folders (Annotated[bool, typer.Option, optional): _description_. Defaults to "Reprocess all runs for the data collection")]=False.
-        update_files (Annotated[bool, typer.Option, optional): _description_. Defaults to "Update files for the data collection. rescan-folders will be enabled if used.")]=False.
     """
     rich_print_command_usage("scan")
 
@@ -147,11 +139,15 @@ def process(
             "--project-config-path", help="Path to the pipeline configuration file"
         ),
     ] = "",
-    # update: Optional[bool] = typer.Option(False, "--update", help="Update the workflow if it already exists"),
     overwrite: Optional[bool] = typer.Option(
         False, "--overwrite", help="Overwrite the workflow if it already exists"
     ),
-    # data_collection_tag: Optional[str] = typer.Option(None, "--data-collection-tag", help="Data collection tag to be processed"),
+    workflow_name: Optional[str] = typer.Option(
+        None, "--workflow-name", help="Name of the workflow to be processed"
+    ),
+    data_collection_tag: Optional[str] = typer.Option(
+        None, "--data-collection-tag", help="Data collection tag to be processed"
+    ),
 ):
     """
     Process data collections for a specific tag.
@@ -207,6 +203,8 @@ def process(
                     project_config=project_config,
                     mode="process",
                     command_parameters=command_parameters,
+                    workflow_name=workflow_name,
+                    data_collection_tag=data_collection_tag,
                 )
             else:
                 rich_print_checked_statement(
