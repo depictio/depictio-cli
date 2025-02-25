@@ -2,7 +2,9 @@ import typer
 from typing import Annotated
 
 from depictio_models.utils import convert_model_to_dict
+from depictio_cli.logging import logger
 from depictio_cli.cli.utils.api_calls import (
+    api_check_server_status,
     api_get_project_from_name,
     api_sync_project_config_to_server,
 )
@@ -36,7 +38,11 @@ def show_cli_config(
 
     try:
         depictio_CLI_config = load_depictio_config(yaml_config_path=CLI_config_path)
-        rich_print_json("Current Depictio CLI Configuration: ", depictio_CLI_config)
+        logger.debug(f"depictio_CLI_config: {depictio_CLI_config}")
+        rich_print_json(
+            "Current Depictio CLI Configuration: ",
+            convert_model_to_dict(depictio_CLI_config),
+        )
     except Exception as e:
         rich_print_checked_statement(f"Unable to load configuration - {e}", "error")
 
@@ -56,9 +62,42 @@ def check_s3_storage(
     rich_print_command_usage("check_S3_storage")
     try:
         CLI_config = load_depictio_config(yaml_config_path=CLI_config_path)
-        S3_storage_checks(CLI_config)
+        s3_response = S3_storage_checks(CLI_config)
+        if s3_response:
+            rich_print_checked_statement(
+                "S3 storage configuration is correct", "success"
+            )
+        else:
+            rich_print_checked_statement(
+                "S3 storage configuration is incorrect", "error"
+            )
     except Exception as e:
         rich_print_checked_statement(f"Unable to check S3 storage - {e}", "error")
+
+
+@app.command()
+def check_server_accessibility(
+    CLI_config_path: Annotated[
+        str, typer.Option("--CLI-config-path", help="Path to the configuration file")
+    ] = "~/.depictio/CLI.yaml",
+):
+    """
+    Check if the server is accessible.
+
+    Args:
+        CLI_config_path (Annotated[str, typer.Option, optional): _description_. Defaults to "Path to the configuration file")]="~/.depictio/CLI.yaml".
+    """
+    rich_print_command_usage("check_server_accessibility")
+    try:
+        CLI_config = load_depictio_config(yaml_config_path=CLI_config_path)
+        response = api_check_server_status(CLI_config)
+        if response.status_code == 200:
+            rich_print_checked_statement("Server is accessible", "success")
+        else:
+            rich_print_checked_statement("Server is not accessible", "error")
+
+    except Exception as e:
+        rich_print_checked_statement(f"Unable to access server - {e}", "error")
 
 
 @app.command()
