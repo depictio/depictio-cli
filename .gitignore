@@ -176,3 +176,4 @@ build/
 .act/
 .aider*
 .DS_Store
+dummy_cli_config.yaml
