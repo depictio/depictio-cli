@@ -1,0 +1,100 @@
+name: Python Package CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Run workflow on a schedule to catch dependency issues early
+  schedule:
+    - cron: '0 0 * * 1'  # Run every Monday at midnight
+
+jobs:
+  # Security scanning with CodeQL
+  # security-scan:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+      
+  #     - name: Initialize CodeQL
+  #       uses: github/codeql-action/init@v2
+  #       with:
+  #         languages: python
+      
+  #     - name: Perform CodeQL Analysis
+  #       uses: github/codeql-action/analyze@v2
+  
+  # # Dependency review to check for vulnerabilities in PRs
+  # dependency-review:
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'pull_request'
+  #   steps:
+  #     - uses: actions/checkout@v4
+      
+  #     - name: Dependency Review
+  #       uses: actions/dependency-review-action@v3
+
+  build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+        # Uncomment to test with more Python versions
+        # python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: mkdir -p ~/.uv/act_cache && chmod -R 777 ~/.uv/act_cache
+
+      # Setup uv with caching enabled for faster dependency installation
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-local-path: "~/.uv/act_cache"
+
+      # Generate a lock file to ensure reproducible builds
+      - name: Generate lock file
+        run: |
+          uv pip install -e .
+          uv pip freeze > requirements.lock
+
+      # Cache the lock file to speed up future builds
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.uv/act_cache
+          key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ hashFiles('requirements.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-${{ matrix.python-version }}-
+
+      - name: Install package and dependencies
+        run: |
+          uv pip install -e .
+          uv pip install -r requirements.lock || uv pip install pytest pytest-cov mypy ruff build uv types-bleach types-PyYAML types-requests
+          uv pip list  # optional diagnostic step
+
+      - name: Run tests with pytest
+        run: uv run pytest
+
+      - name: Lint with ruff
+        run: uv run ruff check .
+
+      - name: Type check with mypy
+        run: uv run mypy .
+
+      - name: Build distributions
+        run: python -m build
+        
+      # Scan dependencies for security vulnerabilities
+      - name: Scan dependencies for vulnerabilities
+        run: |
+          uv pip install safety
+          uv run safety check -r requirements.lock --full-report || true
+
+# Note: To integrate CodeRabbit, you'll need to:
+# 1. Sign up at https://coderabbit.ai
+# 2. Connect your GitHub repository
+# 3. CodeRabbit will automatically review your PRs
+# No GitHub Action is needed as CodeRabbit integrates directly with GitHub
