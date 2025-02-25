@@ -1,13 +1,13 @@
 from datetime import datetime
 import os
 import typer
-from typeguard import typechecked
+from pydantic import validate_call
 
 from depictio_cli.logging import logger
 from depictio_models.models.cli import CLIConfig
 
 
-@typechecked
+@validate_call
 def generate_api_headers(CLI_config: CLIConfig) -> dict:
     """
     Generate the API headers.
@@ -32,7 +32,7 @@ def generate_api_headers(CLI_config: CLIConfig) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-@typechecked
+@validate_call
 def format_timestamp(timestamp: float) -> str:
     """
     Format the timestamp.
@@ -44,7 +44,7 @@ def format_timestamp(timestamp: float) -> str:
         return str(timestamp)
 
 
-@typechecked
+@validate_call
 def validate_depictio_cli_config(depictio_cli_config: dict) -> CLIConfig:
     """
     Validate the Depictio CLI configuration.
@@ -59,8 +59,8 @@ def validate_depictio_cli_config(depictio_cli_config: dict) -> CLIConfig:
     return config
 
 
-@typechecked
-def load_depictio_config(yaml_config_path: str = "~/.depictio/cli.yaml") -> CLIConfig:
+@validate_call
+def load_depictio_config(yaml_config_path: str = "~/.depictio/CLI.yaml") -> CLIConfig:
     """
     Load the Depictio configuration file.
     """
@@ -70,6 +70,7 @@ def load_depictio_config(yaml_config_path: str = "~/.depictio/cli.yaml") -> CLIC
 
         rich_print_checked_statement("Loading Depictio configuration...", "loading")
         config = get_config(os.path.expanduser(yaml_config_path))
+        logger.debug(f"Depictio configuration loaded: {config}")
         config = validate_depictio_cli_config(config)
         return config
     except FileNotFoundError:

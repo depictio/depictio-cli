@@ -15,6 +15,20 @@ from depictio_models.utils import convert_model_to_dict
 
 
 @validate_call
+def api_check_server_status(CLI_config: CLIConfig):
+    """
+    Check the server status.
+    """
+    response = httpx.get(
+        f"{CLI_config.api_base_url}/depictio/api/v1/utils/status",
+        headers=generate_api_headers(CLI_config),
+    )
+    logger.info(f"Server status: {response.status_code}")
+    logger.info(f"Server status: {response.text}")
+    return response
+
+
+@validate_call
 def api_login(yaml_config_path: str = "~/.depictio/agent.yaml") -> dict:
     """
     Login to the Depictio API using the CLI configuration.

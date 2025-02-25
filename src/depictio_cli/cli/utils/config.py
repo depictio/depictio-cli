@@ -55,7 +55,9 @@ def validate_project_config_and_check_S3_storage(
     if response["success"]:
         CLI_config = response["CLI_config"]
         # Check S3 accessibility
-        S3_storage_checks(CLI_config)
+        s3_response = S3_storage_checks(CLI_config)
+        if not s3_response:
+            raise ValueError("S3 storage is not accessible.")
 
         CLI_config = CLIConfig(**CLI_config)
         # Validate the project configuration

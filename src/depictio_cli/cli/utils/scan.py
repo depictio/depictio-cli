@@ -1,8 +1,6 @@
 import collections
 from typing import Any, DefaultDict, Dict, List, Optional, Union, cast
-from bson import ObjectId
 from pydantic import validate_call
-from typeguard import typechecked
 import os
 import re
 import hashlib
@@ -31,6 +29,7 @@ from depictio_models.models.workflows import (
     WorkflowRunScan,
 )
 from depictio_models.models.files import File, FileScanResult
+from depictio_models.models.base import PyObjectId
 
 
 def regex_match(file: File, full_regex: str):
@@ -268,7 +267,7 @@ def scan_single_file(
 
     # Create the File instance.
     file_instance = File(
-        id=file_id if file_id else ObjectId(),
+        id=file_id if file_id else PyObjectId(),
         filename=file_name,
         file_location=file_location,
         creation_time=creation_time_iso,
@@ -377,13 +376,13 @@ def process_files(
     return file_list
 
 
-@typechecked
+@validate_call
 def scan_run(
     run_location: str,
     run_tag: str,
     workflow_config: WorkflowConfig,
     data_collection: DataCollection,
-    workflow_id: ObjectId,
+    workflow_id: PyObjectId,
     existing_run: Union[WorkflowRun, None],
     existing_files_reformated: dict,
     CLI_config: CLIConfig,
@@ -400,7 +399,7 @@ def scan_run(
         run_tag (str): A tag/name for this run.
         workflow_config (WorkflowConfig): The workflow configuration object.
         data_collection (DataCollection): The data collection configuration object.
-        workflow_id (ObjectId): The ID of the workflow.
+        workflow_id (PyObjectId): The ID of the workflow.
         rescan_folders (bool): Whether to reprocess the runs.
         update_files (bool): Whether to update file information.
 
@@ -575,14 +574,14 @@ def scan_run(
     return workflow_run
 
 
-@typechecked
+@validate_call
 def scan_parent_folder(
     parent_runs_location: str,
     workflow_config: WorkflowConfig,
     data_collection: DataCollection,
     data_location: WorkflowDataLocation,
     existing_files_reformated: dict,
-    workflow_id: ObjectId,
+    workflow_id: PyObjectId,
     CLI_config: CLIConfig,
     permissions: Permission,
     structure: str = "sequencing-runs",  # or "direct-folder"
@@ -598,7 +597,7 @@ def scan_parent_folder(
         workflow_config (WorkflowConfig): The workflow configuration object.
         data_collection (DataCollection): The data collection configuration object.
         data_location (WorkflowDataLocation): The data location configuration object.
-        workflow_id (ObjectId): The ID of the workflow.
+        workflow_id (PyObjectId): The ID of the workflow.
         structure (str): "sequencing-runs" to scan subdirectories, "direct-folder" to scan the folder itself.
         rescan_folders (bool): Whether to reprocess the runs.
         update_files (bool): Whether to update file information.
@@ -766,7 +765,7 @@ def scan_files_for_data_collection(
     data_collection_id: str,
     CLI_config: CLIConfig,
     command_parameters: dict,
-) -> None:
+) -> dict:
     """
     Scan files for a given data collection of a workflow and track progress in the local TinyDB.
 
@@ -799,10 +798,7 @@ def scan_files_for_data_collection(
         None,
     )
     if data_collection is None:
-        error_msg = (
-            f"Data collection {data_collection_id} not found in workflow "
-            f"{workflow.workflow_tag}."
-        )
+        error_msg = f"Data collection {data_collection_id} not found in workflow {workflow.workflow_tag}."
         logger.error(error_msg)
         rich_print_checked_statement(error_msg, "error")
         raise ValueError(error_msg)  # Abort execution if data_collection is not found
@@ -823,10 +819,7 @@ def scan_files_for_data_collection(
 
     # Convert existing_files from a dict to a list of file dictionaries if needed.
     existing_files_reformated = (
-        {
-            existing_file["file_location"]: existing_file
-            for existing_file in existing_files
-        }
+        {existing_file.file_location: existing_file for existing_file in existing_files}
         if existing_files
         else {}
     )
@@ -883,7 +876,8 @@ def scan_files_for_data_collection(
             f"Scanned {len(files)} file(s) for data collection {data_collection.data_collection_tag}",
             "info",
         )
-        return
+        return {"result": "success", "message": "Files scanned successfully"}
+
     else:
         # For aggregate mode, use the existing parent folder scanning.
         locations = workflow.data_location.locations
@@ -892,7 +886,10 @@ def scan_files_for_data_collection(
                 f"No locations configured for workflow {workflow.workflow_tag}.",
                 "warning",
             )
-            return
+            return {
+                "result": "failure",
+                "message": "No locations configured for the workflow.",
+            }
 
         runs_stats = []
         for location in locations:
@@ -914,8 +911,10 @@ def scan_files_for_data_collection(
             if runs_and_content:
                 api_upsert_runs_batch(runs_and_content, CLI_config, rescan_folders)
                 runs_stats.extend(runs_and_content)
+
             rich_print_summary_scan_table(runs_stats)
             rich_print_checked_statement(
                 f"Scanned {len(runs_and_content)} runs in location {location}",
                 "success",
             )
+        return {"result": "success", "message": "Files scanned successfully"}

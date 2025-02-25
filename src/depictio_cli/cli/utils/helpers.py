@@ -1,5 +1,5 @@
 from typing import Optional
-from typeguard import typechecked
+from pydantic import validate_call
 from depictio_cli.cli.utils.deltatables import client_aggregate_data
 from depictio_cli.cli.utils.rich_utils import (
     rich_print_checked_statement,
@@ -10,7 +10,7 @@ from depictio_models.models.cli import CLIConfig
 from depictio_models.models.projects import Project, Workflow
 
 
-@typechecked
+@validate_call
 def process_data_collection_helper(
     CLI_config: CLIConfig,
     wf: Workflow,
@@ -62,7 +62,7 @@ def process_data_collection_helper(
         rich_print_checked_statement(f"Error: {result['message']}", "error")
 
 
-@typechecked
+@validate_call
 def process_workflow_helper(
     CLI_config: CLIConfig,
     workflow: Workflow,
@@ -112,7 +112,7 @@ def process_workflow_helper(
         )
 
 
-@typechecked
+@validate_call
 def process_project_helper(
     CLI_config: CLIConfig,
     project_config: Project,
