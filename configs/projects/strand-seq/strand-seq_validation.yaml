@@ -110,22 +110,22 @@ workflows:
             with_dc:
               - "ashleys_labels"
 
-      - data_collection_tag: "mosaicatcher_samples_metadata"
-        description: "Metadata file for MosaiCatcher samples"
-        config:
-          type: "Table"
-          metatype: "Metadata"
-          scan: 
-            mode: single
-            scan_parameters: 
-                filename: "/Users/tweber/Data/mosaicatcher-pipeline-2024/mosaicatcher_samples_metadata_2024.xlsx"
-          dc_specific_properties:
-            format: "XLSX"
-          join:
-            on_columns:
-              - "sample"
-            how: "inner"
-            with_dc:
-              - "mosaicatcher_stats"
+#      - data_collection_tag: "mosaicatcher_samples_metadata"
+#        description: "Metadata file for MosaiCatcher samples"
+#        config:
+#          type: "Table"
+#          metatype: "Metadata"
+#          scan: 
+#            mode: single
+#            scan_parameters: 
+#                filename: "/Users/tweber/Data/mosaicatcher-pipeline-2024/mosaicatcher_samples_metadata_2024.xlsx"
+#          dc_specific_properties:
+#            format: "XLSX"
+#          join:
+#            on_columns:
+#              - "sample"
+#            how: "inner"
+#            with_dc:
+#              - "mosaicatcher_stats"
 
 
