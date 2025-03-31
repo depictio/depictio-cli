@@ -56,7 +56,7 @@ def check_s3_storage(
     rich_print_command_usage("check_S3_storage")
     try:
         CLI_config = load_depictio_config(yaml_config_path=CLI_config_path)
-        S3_storage_checks(CLI_config)
+        S3_storage_checks(CLI_config.s3_storage)
     except Exception as e:
         rich_print_checked_statement(f"Unable to check S3 storage - {e}", "error")
 
