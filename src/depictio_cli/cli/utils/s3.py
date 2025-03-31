@@ -120,16 +120,13 @@ class MinIOManager(S3ProviderBase):
 #     s3_manager.suggest_adjustments()
 
 
-def S3_storage_checks(cli_config):
+def S3_storage_checks(s3_config: MinIOS3Config):
     """
     Check if the S3 endpoint, access key, secret key, and bucket are accessible.
     """
     logger.info("Checking S3 accessibility...")
-    # Connect to MinIO
-    logger.info(f"CLI config : {cli_config}")
-    s3_config = cli_config["s3_storage"]
-    logger.info(f"S3 config : {s3_config}")
-    minio_manager = MinIOManager(MinIOS3Config(**s3_config))
+    logger.info(f"S3 config: {s3_config}")
+    minio_manager = MinIOManager(s3_config)
     logger.info("MinIOManager initialized.")
     minio_manager.suggest_adjustments()
 
