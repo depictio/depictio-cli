@@ -27,6 +27,8 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent"
 ]
+[project.scripts]
+depictio-cli = "depictio_cli.depictio_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
